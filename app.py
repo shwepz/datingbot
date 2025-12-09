@@ -106,21 +106,29 @@ def init_db():
             safe_execute('ALTER TABLE users ADD COLUMN daily_likes_used INTEGER DEFAULT 0')
             safe_execute('ALTER TABLE users ADD COLUMN last_like_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
             
+            # Migration: Drop old likes table constraints and recreate with CASCADE
             try:
-                c.execute('''
-                    CREATE TABLE IF NOT EXISTS likes (
-                        id SERIAL PRIMARY KEY,
-                        from_user BIGINT,
-                        to_user BIGINT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        UNIQUE(from_user, to_user),
-                        FOREIGN KEY(from_user) REFERENCES users(id) ON DELETE CASCADE,
-                        FOREIGN KEY(to_user) REFERENCES users(id) ON DELETE CASCADE
-                    )
-                ''')
+                c.execute('ALTER TABLE likes DROP CONSTRAINT IF EXISTS likes_from_user_fkey')
+                c.execute('ALTER TABLE likes DROP CONSTRAINT IF EXISTS likes_to_user_fkey')
+                c.execute('ALTER TABLE likes ADD CONSTRAINT likes_from_user_fkey FOREIGN KEY(from_user) REFERENCES users(id) ON DELETE CASCADE')
+                c.execute('ALTER TABLE likes ADD CONSTRAINT likes_to_user_fkey FOREIGN KEY(to_user) REFERENCES users(id) ON DELETE CASCADE')
                 conn.commit()
+                print("✅ Updated likes table constraints")
             except Exception as e:
                 conn.rollback()
+                print(f"Likes migration note: {e}")
+            
+            # Migration: Drop old chats table constraints and recreate with CASCADE
+            try:
+                c.execute('ALTER TABLE chats DROP CONSTRAINT IF EXISTS chats_user1_id_fkey')
+                c.execute('ALTER TABLE chats DROP CONSTRAINT IF EXISTS chats_user2_id_fkey')
+                c.execute('ALTER TABLE chats ADD CONSTRAINT chats_user1_id_fkey FOREIGN KEY(user1_id) REFERENCES users(id) ON DELETE CASCADE')
+                c.execute('ALTER TABLE chats ADD CONSTRAINT chats_user2_id_fkey FOREIGN KEY(user2_id) REFERENCES users(id) ON DELETE CASCADE')
+                conn.commit()
+                print("✅ Updated chats table constraints")
+            except Exception as e:
+                conn.rollback()
+                print(f"Chats migration note: {e}")
             
             try:
                 c.execute('''
