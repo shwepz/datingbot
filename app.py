@@ -11,6 +11,7 @@ import psycopg
 from psycopg.rows import dict_row
 import base64
 import logging
+import random
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
@@ -108,7 +109,7 @@ def init_db():
                 print(f"Create users table error: {e}")
                 conn.rollback()
             
-            # Add missing columns if they don't exist - each in separate transaction
+            # Add missing columns if they don't exist
             safe_execute('ALTER TABLE users ADD COLUMN photo_url TEXT')
             safe_execute('ALTER TABLE users ADD COLUMN is_premium BOOLEAN DEFAULT FALSE')
             safe_execute('ALTER TABLE users ADD COLUMN daily_likes_used INTEGER DEFAULT 0')
@@ -151,7 +152,6 @@ def init_db():
                 print(f"Create chats table error: {e}")
                 conn.rollback()
             
-            # Add missing column in chats
             safe_execute('ALTER TABLE chats ADD COLUMN last_message_at TIMESTAMP')
             
             # Сообщения
@@ -172,7 +172,7 @@ def init_db():
                 print(f"Create messages table error: {e}")
                 conn.rollback()
             
-            # Predefined tags
+            # Теги
             try:
                 c.execute('''
                     CREATE TABLE IF NOT EXISTS tags (
@@ -193,7 +193,7 @@ def init_db():
                 if result and result['cnt'] == 0:
                     tags_data = [
                         ('Sport', '⚽'),
-                        ('Crypto', '🤑'),
+                        ('Crypto', '🧑‍💻'),
                         ('Travel', '✈️'),
                         ('Music', '🎵'),
                         ('Gaming', '🎮'),
@@ -231,7 +231,7 @@ def init_db():
                 print(f"Create user_tags table error: {e}")
                 conn.rollback()
             
-            print("✅ Database initialized successfully!")
+            print("✅ База данных инициализирована!")
     except Exception as e:
         print(f"Init DB error: {e}")
     finally:
@@ -305,47 +305,17 @@ def get_ai_icebreaker(user1_id, user2_id):
             icebreakers = {
                 'Sport': f"Ух ты, вы оба любите спорт! {tag['emoji']} Какая твоя любимая команда?",
                 'Crypto': f"Крипто-энтузиасты! {tag['emoji']} Какая твоя любимая монета?",
-                'Travel': f"Вы оба любите путешествия! {tag['emoji']} Какая была твоя последняя поездка?",
-                'Music': f"Любители музыки! {tag['emoji']} Кто твой любимый исполнитель?",
-                'Dogs': f"У вас обоих есть собаки! {tag['emoji']} Расскажи о своей!",
-                'Fitness': f"Пара фитнес-ботаников! {tag['emoji']} Какой у тебя график тренировок?",
+                'Travel': f"Вы оба любите путешествия! {tag['emoji']} Какая была твоя та поездка?",
+                'Music': f"Любители музыки! {tag['emoji']} Кто твой любимый?",
+                'Dogs': f"У вас обоих есть собаки! {tag['emoji']} Какие они?",
+                'Fitness': f"Пара фитнес-ботаников! {tag['emoji']} Твоя любимая тысяча?",
                 'Food': f"Гурманы! {tag['emoji']} Какая твоя любимая кухня?",
             }
             return icebreakers.get(tag['name'], f"Вы оба любите {tag['name']}! {tag['emoji']}")
     except Exception as e:
         print(f"Error generating icebreaker: {e}")
     
-    return 'Напиши привет и начни разговор!'
-
-# ======================== VALIDATION ========================
-
-def validate_init_data(init_data):
-    """Валидирует initData от Telegram WebApp"""
-    try:
-        data = {}
-        for item in init_data.split('&'):
-            if '=' in item:
-                k, v = item.split('=', 1)
-                data[k] = v
-        
-        hash_val = data.pop('hash', '')
-        data_check_string = '\n'.join(f'{k}={v}' for k, v in sorted(data.items()))
-        
-        secret_key = hmac.new(b'WebAppData', BOT_TOKEN.encode(), hashlib.sha256).digest()
-        calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-        
-        if not hmac.compare_digest(calculated_hash, hash_val):
-            return None
-        
-        auth_date = int(data.get('auth_date', 0))
-        if time.time() - auth_date > 3600:
-            return None
-        
-        user = json.loads(data.get('user', '{}'))
-        return user
-    except Exception as e:
-        print(f'Validation error: {e}')
-        return None
+    return 'Напиши привет!'
 
 # ======================== API ROUTES ========================
 
@@ -359,7 +329,6 @@ def get_tags():
 def get_user(user_id):
     user = execute_query('SELECT id, name, age, city, bio, photo_url, is_premium FROM users WHERE id = ?', (user_id,), fetch_one=True)
     if user:
-        # Get user tags
         tags = execute_query('''
             SELECT t.id, t.name, t.emoji FROM user_tags ut
             JOIN tags t ON ut.tag_id = t.id
@@ -388,11 +357,8 @@ def create_user():
             data.get('bio'), data.get('photo_url')
         ), commit=True)
         
-        # Update tags if provided
         if data.get('tag_ids'):
-            # Delete old tags
             execute_query('DELETE FROM user_tags WHERE user_id = ?', (data['id'],), commit=True)
-            # Add new tags
             for tag_id in data['tag_ids']:
                 execute_query('INSERT INTO user_tags (user_id, tag_id) VALUES (?, ?)', (data['id'], tag_id), commit=True)
         
@@ -402,47 +368,61 @@ def create_user():
 
 @app.route('/api/profiles/<int:user_id>', methods=['GET'])
 def get_profiles(user_id):
-    """Get profiles for search - exclude liked and disliked users"""
+    """Get profiles - smart sorting by common tags + random"""
     delete_expired_chats()
     reset_daily_likes(user_id)
     
-    # Get all users that current user has already interacted with (liked or disliked)
-    interacted = execute_query('''
-        SELECT to_user FROM likes WHERE from_user = ?
-    ''', (user_id,), fetch_all=True)
-    
-    interacted_ids = [row['to_user'] for row in interacted]
-    interacted_ids.append(user_id)  # Also exclude self
-    
-    # Get profiles that user hasn't interacted with
-    if interacted_ids:
-        # Use parameterized query to safely pass the list
-        placeholders = ','.join(['%s'] * len(interacted_ids))
-        query = f'SELECT id, name, age, city, bio, photo_url FROM users WHERE id NOT IN ({placeholders}) LIMIT 50'
-        profiles = execute_query(query, tuple(interacted_ids), fetch_all=True)
-    else:
-        profiles = execute_query(
-            'SELECT id, name, age, city, bio, photo_url FROM users WHERE id != %s LIMIT 50',
-            (user_id,), fetch_all=True
-        )
-    
-    # Add tags for each profile
-    for profile in profiles:
-        tags = execute_query('''
-            SELECT t.id, t.name, t.emoji FROM user_tags ut
-            JOIN tags t ON ut.tag_id = t.id
-            WHERE ut.user_id = ?
-        ''', (profile['id'],), fetch_all=True)
-        profile['tags'] = tags
-    
-    return jsonify(profiles)
+    try:
+        # Get user's tags
+        user_tags = execute_query('''
+            SELECT tag_id FROM user_tags WHERE user_id = ?
+        ''', (user_id,), fetch_all=True)
+        user_tag_ids = [row['tag_id'] for row in user_tags]
+        
+        # Get liked/disliked IDs
+        interacted = execute_query('''
+            SELECT to_user FROM likes WHERE from_user = ?
+        ''', (user_id,), fetch_all=True)
+        interacted_ids = [row['to_user'] for row in interacted] + [user_id]
+        
+        # Sort by common tags, then random
+        if user_tag_ids:
+            placeholders = ','.join(['%s'] * len(interacted_ids))
+            query = f'''
+                SELECT u.id, u.name, u.age, u.city, u.bio, u.photo_url,
+                       COUNT(ut.tag_id) as common_tags_count
+                FROM users u
+                LEFT JOIN user_tags ut ON u.id = ut.user_id AND ut.tag_id IN ({",".join(["%s"] * len(user_tag_ids))})
+                WHERE u.id NOT IN ({placeholders})
+                GROUP BY u.id, u.name, u.age, u.city, u.bio, u.photo_url
+                ORDER BY common_tags_count DESC, RANDOM()
+                LIMIT 50
+            '''
+            profiles = execute_query(query, user_tag_ids + interacted_ids, fetch_all=True)
+        else:
+            placeholders = ','.join(['%s'] * len(interacted_ids))
+            query = f'SELECT id, name, age, city, bio, photo_url FROM users WHERE id NOT IN ({placeholders}) ORDER BY RANDOM() LIMIT 50'
+            profiles = execute_query(query, tuple(interacted_ids), fetch_all=True)
+        
+        # Add tags for each profile
+        for profile in profiles:
+            tags = execute_query('''
+                SELECT t.id, t.name, t.emoji FROM user_tags ut
+                JOIN tags t ON ut.tag_id = t.id
+                WHERE ut.user_id = ?
+            ''', (profile['id'],), fetch_all=True)
+            profile['tags'] = tags
+        
+        return jsonify(profiles)
+    except Exception as e:
+        print(f"Error in get_profiles: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/like', methods=['POST'])
 def like_profile():
-    """Like a profile with like limit check"""
+    """Like a profile"""
     data = request.json
     
-    # Check like limits (20 per day)
     reset_daily_likes(data['from_user'])
     user = execute_query('SELECT daily_likes_used FROM users WHERE id = ?', (data['from_user'],), fetch_one=True)
     
@@ -454,22 +434,18 @@ def like_profile():
             INSERT INTO likes (from_user, to_user) VALUES (?, ?) ON CONFLICT DO NOTHING
         ''', (data['from_user'], data['to_user']), commit=True)
         
-        # Increment like counter
         execute_query('UPDATE users SET daily_likes_used = daily_likes_used + 1 WHERE id = ?', (data['from_user'],), commit=True)
         
-        # Check for mutual like
         mutual_like = execute_query('''
             SELECT * FROM likes WHERE from_user = ? AND to_user = ?
         ''', (data['to_user'], data['from_user']), fetch_one=True)
         
         if mutual_like:
-            # Sort IDs for uniqueness
             u1, u2 = sorted([data['from_user'], data['to_user']])
             execute_query('''
                 INSERT INTO chats (user1_id, user2_id, last_message_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING
             ''', (u1, u2), commit=True)
             
-            # Get AI icebreaker
             icebreaker = get_ai_icebreaker(data['from_user'], data['to_user'])
             return jsonify({'match': True, 'icebreaker': icebreaker})
         
@@ -488,9 +464,8 @@ def get_matches(user_id):
     matches = []
     for chat in chats:
         match_id = chat['user2_id'] if chat['user1_id'] == user_id else chat['user1_id']
-        user = execute_query('SELECT id, name, city, photo_url FROM users WHERE id = ?', (match_id,), fetch_one=True)
+        user = execute_query('SELECT id, name, age, city, photo_url FROM users WHERE id = ?', (match_id,), fetch_one=True)
         if user:
-            # Get common tags
             user_tags = execute_query('''
                 SELECT t.name FROM user_tags ut
                 JOIN tags t ON ut.tag_id = t.id
@@ -539,7 +514,6 @@ def send_message():
             INSERT INTO messages (chat_id, from_user, text) VALUES (?, ?, ?)
         ''', (data['chat_id'], data['from_user'], data['text']), commit=True)
         
-        # Update last_message_at in chat
         execute_query('UPDATE chats SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?', (data['chat_id'],), commit=True)
         
         return jsonify({'success': True})
@@ -554,11 +528,9 @@ def upload_photo():
         user_id = data['user_id']
         photo_base64 = data['photo_data']
         
-        # Save to /tmp or return URL
         photo_filename = f'{user_id}_profile.jpg'
         photo_path = os.path.join(PHOTO_DIR, photo_filename)
         
-        # Decode and save
         if ',' in photo_base64:
             photo_base64 = photo_base64.split(',')[1]
         
@@ -566,10 +538,7 @@ def upload_photo():
         with open(photo_path, 'wb') as f:
             f.write(photo_bytes)
         
-        # Return photo URL
         photo_url = f'/api/photo/{user_id}'
-        
-        # Update user photo_url
         execute_query('UPDATE users SET photo_url = ? WHERE id = ?', (photo_url, user_id), commit=True)
         
         return jsonify({'success': True, 'photo_url': photo_url})
