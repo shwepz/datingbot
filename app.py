@@ -130,6 +130,16 @@ def init_db():
                 conn.rollback()
                 print(f"Chats migration note: {e}")
             
+            # Migration: Fix messages table to add CASCADE for from_user
+            try:
+                c.execute('ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_from_user_fkey')
+                c.execute('ALTER TABLE messages ADD CONSTRAINT messages_from_user_fkey FOREIGN KEY(from_user) REFERENCES users(id) ON DELETE CASCADE')
+                conn.commit()
+                print("✅ Updated messages table constraints")
+            except Exception as e:
+                conn.rollback()
+                print(f"Messages migration note: {e}")
+            
             try:
                 c.execute('''
                     CREATE TABLE IF NOT EXISTS chats (
@@ -154,6 +164,7 @@ def init_db():
                         text TEXT,
                         chat_id INTEGER,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY(from_user) REFERENCES users(id) ON DELETE CASCADE,
                         FOREIGN KEY(chat_id) REFERENCES chats(id) ON DELETE CASCADE
                     )
                 ''')
