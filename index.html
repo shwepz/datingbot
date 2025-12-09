@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Dating App - Найди свою половинку</title>
+    <script src="https://telegram.org/js/telegram-web-app.js?59"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --safe-area-inset-top: max(0px, env(safe-area-inset-top));
+            --safe-area-inset-bottom: max(0px, env(safe-area-inset-bottom));
+            --safe-area-inset-left: max(0px, env(safe-area-inset-left));
+            --safe-area-inset-right: max(0px, env(safe-area-inset-right));
+            
+            color-scheme: light dark;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 0;
+            line-height: 1.5;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding-top: var(--safe-area-inset-top);
+            padding-bottom: var(--safe-area-inset-bottom);
+            padding-left: var(--safe-area-inset-left);
+            padding-right: var(--safe-area-inset-right);
+        }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+        }
+
+        .header {
+            padding: 16px 20px;
+            text-align: center;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 13px;
+            opacity: 0.8;
+            font-weight: 500;
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0 16px 16px;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .page.active {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* =============== LOGIN PAGE =============== */
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            padding: 40px 20px;
+        }
+
+        .login-icon {
+            font-size: 80px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .login-title {
+            font-size: 28px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .login-subtitle {
+            font-size: 15px;
+            opacity: 0.8;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        /* =============== BUTTONS =============== */
+        .btn {
+            padding: 14px 16px;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            transition: left 0.3s;
+            z-index: -1;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-top: 12px;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.6);
+            color: #fff;
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-like {
+            background: rgba(34, 197, 94, 0.7);
+            color: #fff;
+            border: 1px solid rgba(34, 197, 94, 0.5);
+            flex: 1;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-skip {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            flex: 1;
+            backdrop-filter: blur(10px);
+        }
+
+        /* =============== FORM =============== */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 15px;
+            opacity: 0.95;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 14px;
+            font-size: 16px;
+            font-family: inherit;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .char-counter {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        /* =============== TABS =============== */
+        .tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.06);
+            padding: 6px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* =============== PROFILE CARD =============== */
+        .profile-card {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 24px;
+            padding: 24px;
+            backdrop-filter: blur(20px);
+            margin-bottom: 20px;
+            animation: slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(24px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .profile-header {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+
+        .avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: 700;
+            flex-shrink: 0;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .profile-info h2 {
+            font-size: 22px;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+
+        .profile-info p {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .profile-desc {
+            background: rgba(255, 255, 255, 0.06);
+            padding: 16px;
+            border-radius: 14px;
+            margin-bottom: 16px;
+            border-left: 3px solid rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 14px;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        /* =============== MATCHES =============== */
+        .matches-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .match-item {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 14px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .match-item:active {
+            background: rgba(255, 255, 255, 0.12);
+            transform: scale(0.98);
+        }
+
+        .match-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .match-info {
+            flex: 1;
+        }
+
+        .match-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .match-city {
+            font-size: 13px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .match-arrow {
+            font-size: 18px;
+            opacity: 0.6;
+        }
+
+        /* =============== EMPTY STATE =============== */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 64px;
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        /* =============== LOADING =============== */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 60px 20px;
+        }
+
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        /* =============== ALERT =============== */
+        .alert {
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            animation: slideDown 0.3s ease-out;
+            border: 1px solid;
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert-success {
+            background: rgba(34, 197, 94, 0.2);
+            color: #86efac;
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        /* =============== SCROLLBAR =============== */
+        .content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* =============== RESPONSIVE =============== */
+        @media (max-height: 600px) {
+            .login-container {
+                gap: 16px;
+                padding: 20px;
+            }
+
+            .profile-card {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- HEADER -->
+        <div class="header">
+            <h1>💕 Dating</h1>
+            <p>Найди свою половинку</p>
+        </div>
+
+        <!-- CONTENT -->
+        <div class="content">
+            <!-- LOGIN PAGE -->
+            <div id="login-page" class="page active">
+                <div class="login-container">
+                    <div class="login-icon">💝</div>
+                    <div class="login-title">Добро пожаловать!</div>
+                    <div class="login-subtitle">Присоединяйся к сообществу людей<br>ищущих свою половинку</div>
+                    <button class="btn btn-primary" onclick="startLogin()" style="width: 100%; max-width: 280px;">
+                        🔐 Войти через Telegram
+                    </button>
+                </div>
+            </div>
+
+            <!-- PROFILE SETUP PAGE -->
+            <div id="profile-page" class="page">
+                <div id="alerts-profile"></div>
+
+                <div class="form-group">
+                    <label for="user-age">Возраст *</label>
+                    <input type="number" id="user-age" min="18" max="100" placeholder="Сколько тебе лет?">
+                </div>
+
+                <div class="form-group">
+                    <label for="user-city">Город *</label>
+                    <input type="text" id="user-city" placeholder="Например, Москва">
+                </div>
+
+                <div class="form-group">
+                    <label for="user-bio">О себе *</label>
+                    <textarea id="user-bio" placeholder="Расскажи о себе..."></textarea>
+                    <div class="char-counter"><span id="bio-counter">0</span>/200</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="user-interests">Интересы</label>
+                    <input type="text" id="user-interests" placeholder="Спорт, музыка, путешествия...">
+                </div>
+
+                <button class="btn btn-primary" onclick="saveProfile()">💾 Сохранить профиль</button>
+                <button class="btn btn-secondary" onclick="goToDiscovery()">Пропустить</button>
+            </div>
+
+            <!-- DISCOVERY PAGE -->
+            <div id="discovery-page" class="page">
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('search')">🔍 Поиск</button>
+                    <button class="tab-btn" onclick="switchTab('matches')">💬 Совпадения</button>
+                    <button class="tab-btn" onclick="switchTab('profile')">👤 Профиль</button>
+                </div>
+
+                <!-- SEARCH TAB -->
+                <div id="search-tab" class="tab-content active">
+                    <div id="current-profile"></div>
+                    <div id="search-loading" class="loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <div class="loading-text">Загружаем профили...</div>
+                    </div>
+                </div>
+
+                <!-- MATCHES TAB -->
+                <div id="matches-tab" class="tab-content">
+                    <div id="matches-list" class="matches-grid"></div>
+                    <div id="no-matches" class="empty-state" style="display: none;">
+                        <div class="empty-icon">😔</div>
+                        <h3>Совпадений нет</h3>
+                        <p>Ищи и жди любви!</p>
+                    </div>
+                </div>
+
+                <!-- PROFILE TAB -->
+                <div id="profile-tab" class="tab-content">
+                    <div id="my-profile"></div>
+                    <button class="btn btn-danger" onclick="logout()" style="margin-top: 20px;">🚪 Выход</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Глобальные переменные
+        let currentUser = null;
+        let currentProfiles = [];
+        let currentProfileIndex = 0;
+        const API_URL = window.location.origin;
+
+        // Инициализация
+        window.addEventListener('load', () => {
+            if (window.Telegram?.WebApp) {
+                Telegram.WebApp.ready();
+                Telegram.WebApp.expand();
+                const userInfo = Telegram.WebApp.initDataUnsafe?.user;
+                if (userInfo) {
+                    initUser(userInfo);
+                } else {
+                    console.log('Запрос initData...');
+                }
+            } else {
+                simulateLogin();
+            }
+        });
+
+        // Тестовый вход
+        function simulateLogin() {
+            const testUser = {
+                id: Math.floor(Math.random() * 1000000),
+                first_name: 'Тестовый',
+                last_name: 'Пользователь'
+            };
+            initUser(testUser);
+        }
+
+        // Начало входа
+        function startLogin() {
+            if (window.Telegram?.WebApp) {
+                const userInfo = Telegram.WebApp.initDataUnsafe?.user;
+                if (userInfo) {
+                    initUser(userInfo);
+                }
+            } else {
+                simulateLogin();
+            }
+        }
+
+        // Инициализация пользователя
+        async function initUser(userInfo) {
+            currentUser = {
+                id: userInfo.id,
+                name: `${userInfo.first_name || ''} ${userInfo.last_name || ''}`.trim(),
+                username: userInfo.username || null
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/user/${currentUser.id}`);
+                if (response.ok) {
+                    const userData = await response.json();
+                    currentUser = { ...currentUser, ...userData };
+                    goToDiscovery();
+                } else {
+                    showPage('profile-page');
+                }
+            } catch (e) {
+                console.error('Ошибка:', e);
+                showPage('profile-page');
+            }
+        }
+
+        // Сохранение профиля
+        async function saveProfile() {
+            const age = document.getElementById('user-age').value;
+            const city = document.getElementById('user-city').value;
+            const bio = document.getElementById('user-bio').value;
+            const interests = document.getElementById('user-interests').value;
+
+            if (!age || !city || !bio) {
+                showAlert('alerts-profile', '⚠️ Заполни все обязательные поля', 'error');
+                return;
+            }
+
+            if (parseInt(age) < 18) {
+                showAlert('alerts-profile', '⚠️ Минимальный возраст 18 лет', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/user`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: currentUser.id,
+                        name: currentUser.name,
+                        age: parseInt(age),
+                        city,
+                        bio,
+                        interests,
+                        username: currentUser.username
+                    })
+                });
+
+                if (response.ok) {
+                    showAlert('alerts-profile', '✅ Профиль сохранён!', 'success');
+                    currentUser.age = parseInt(age);
+                    currentUser.city = city;
+                    currentUser.bio = bio;
+                    currentUser.interests = interests;
+                    setTimeout(goToDiscovery, 500);
+                }
+            } catch (e) {
+                showAlert('alerts-profile', '❌ Ошибка сохранения', 'error');
+            }
+        }
+
+        // Загрузка профилей
+        async function loadProfiles() {
+            document.getElementById('search-loading').style.display = 'flex';
+            document.getElementById('current-profile').innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_URL}/api/profiles/${currentUser.id}`);
+                if (response.ok) {
+                    currentProfiles = await response.json();
+                    currentProfileIndex = 0;
+                    displayNextProfile();
+                }
+            } catch (e) {
+                console.error('Ошибка:', e);
+            } finally {
+                document.getElementById('search-loading').style.display = 'none';
+            }
+        }
+
+        // Показать профиль
+        function displayNextProfile() {
+            const container = document.getElementById('current-profile');
+
+            if (currentProfileIndex >= currentProfiles.length) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🎉</div>
+                        <h3>Конец листания!</h3>
+                        <p>Проверь свои совпадения или попробуй позже</p>
+                        <button class="btn btn-primary" style="margin-top: 16px; max-width: 200px;" onclick="loadProfiles()">
+                            🔄 Загрузить ещё
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            const profile = currentProfiles[currentProfileIndex];
+            const initials = profile.name
+                .split(' ')
+                .map(n => n[0])
+                .join('')
+                .toUpperCase();
+
+            container.innerHTML = `
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <div class="avatar">${initials}</div>
+                        <div class="profile-info">
+                            <h2>${profile.name}, ${profile.age}</h2>
+                            <p>📍 ${profile.city}</p>
+                        </div>
+                    </div>
+                    <div class="profile-desc">
+                        ${profile.bio}
+                    </div>
+                    ${profile.interests ? `
+                        <div class="stat-row">
+                            <span>🎯 Интересы</span>
+                            <span>${profile.interests}</span>
+                        </div>
+                    ` : ''}
+                    <div class="action-buttons">
+                        <button class="btn btn-skip" onclick="skipProfile()">❌ Пропустить</button>
+                        <button class="btn btn-like" onclick="likeProfile()">❤️ Нравится</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Лайк
+        async function likeProfile() {
+            const profile = currentProfiles[currentProfileIndex];
+            try {
+                const response = await fetch(`${API_URL}/api/like`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        from_user: currentUser.id,
+                        to_user: profile.id
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.match) {
+                        showAlert('', '💕 Это совпадение! Ура!', 'success');
+                    }
+                }
+            } catch (e) {
+                console.error('Ошибка:', e);
+            }
+            currentProfileIndex++;
+            displayNextProfile();
+        }
+
+        // Пропустить
+        function skipProfile() {
+            currentProfileIndex++;
+            displayNextProfile();
+        }
+
+        // Загрузка совпадений
+        async function loadMatches() {
+            const container = document.getElementById('matches-list');
+            const noMatches = document.getElementById('no-matches');
+
+            try {
+                const response = await fetch(`${API_URL}/api/matches/${currentUser.id}`);
+                if (response.ok) {
+                    const matches = await response.json();
+                    if (matches.length === 0) {
+                        noMatches.style.display = 'flex';
+                        container.innerHTML = '';
+                    } else {
+                        noMatches.style.display = 'none';
+                        container.innerHTML = matches.map(m => `
+                            <div class="match-item">
+                                <div class="match-avatar">${m.name[0].toUpperCase()}</div>
+                                <div class="match-info">
+                                    <div class="match-name">${m.name}</div>
+                                    <div class="match-city">📍 ${m.city}</div>
+                                </div>
+                                <div class="match-arrow">💬</div>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.error('Ошибка:', e);
+            }
+        }
+
+        // Показать свой профиль
+        function showMyProfile() {
+            const container = document.getElementById('my-profile');
+            const initials = currentUser.name
+                .split(' ')
+                .map(n => n[0])
+                .join('')
+                .toUpperCase();
+
+            container.innerHTML = `
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <div class="avatar">${initials}</div>
+                        <div class="profile-info">
+                            <h2>${currentUser.name}</h2>
+                            <p>📍 ${currentUser.city || 'Не указан'}</p>
+                        </div>
+                    </div>
+                    <div class="stat-row">
+                        <span>🎂 Возраст</span>
+                        <span>${currentUser.age || '?'}</span>
+                    </div>
+                    <div class="profile-desc" style="margin-top: 16px;">
+                        ${currentUser.bio || 'Нет информации'}
+                    </div>
+                    ${currentUser.interests ? `
+                        <div class="stat-row" style="margin-top: 16px;">
+                            <span>🎯 Интересы</span>
+                            <span>${currentUser.interests}</span>
+                        </div>
+                    ` : ''}
+                    <button class="btn btn-primary" style="margin-top: 20px;" onclick="editProfile()">
+                        ✏️ Редактировать
+                    </button>
+                </div>
+            `;
+        }
+
+        // Редактировать профиль
+        function editProfile() {
+            document.getElementById('user-age').value = currentUser.age || '';
+            document.getElementById('user-city').value = currentUser.city || '';
+            document.getElementById('user-bio').value = currentUser.bio || '';
+            document.getElementById('user-interests').value = currentUser.interests || '';
+            updateBioCounter();
+            showPage('profile-page');
+        }
+
+        // Переключение вкладок
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            if (tab === 'search') {
+                document.getElementById('search-tab').classList.add('active');
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                if (currentProfiles.length === 0) loadProfiles();
+            } else if (tab === 'matches') {
+                document.getElementById('matches-tab').classList.add('active');
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                loadMatches();
+            } else if (tab === 'profile') {
+                document.getElementById('profile-tab').classList.add('active');
+                document.querySelectorAll('.tab-btn')[2].classList.add('active');
+                showMyProfile();
+            }
+        }
+
+        // Перейти на поиск
+        function goToDiscovery() {
+            showPage('discovery-page');
+            switchTab('search');
+        }
+
+        // Выход
+        function logout() {
+            currentUser = null;
+            currentProfiles = [];
+            currentProfileIndex = 0;
+            showPage('login-page');
+        }
+
+        // Показать страницу
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+        }
+
+        // Показать оповещение
+        function showAlert(containerId, message, type) {
+            const container = containerId ? document.getElementById(containerId) : document.querySelector('.content');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            if (containerId) {
+                container.insertBefore(alert, container.firstChild);
+            } else {
+                container.insertBefore(alert, container.firstChild);
+            }
+            setTimeout(() => alert.remove(), 3000);
+        }
+
+        // Счётчик символов для BIO
+        document.getElementById('user-bio')?.addEventListener('input', updateBioCounter);
+        function updateBioCounter() {
+            const bio = document.getElementById('user-bio');
+            const counter = document.getElementById('bio-counter');
+            if (counter) {
+                counter.textContent = bio.value.length;
+                if (bio.value.length > 200) {
+                    bio.value = bio.value.substring(0, 200);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
