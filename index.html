@@ -51,11 +51,38 @@
             text-align: center;
             margin-bottom: 20px;
             padding-top: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .header h1 {
             font-size: 28px;
-            margin-bottom: 8px;
+            margin: 0;
+            flex: 1;
+        }
+
+        .filter-toggle-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text);
+        }
+
+        .filter-toggle-btn:active {
+            transform: scale(0.95);
+            background: var(--accent);
+            color: white;
+        }
+
+        .filter-toggle-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
         }
 
         /* Filters */
@@ -64,6 +91,13 @@
             border-radius: 16px;
             padding: 16px;
             margin-bottom: 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease, margin 0.3s ease;
+        }
+
+        .filters.visible {
+            max-height: 300px;
         }
 
         .filter-group {
@@ -603,6 +637,7 @@
     <div class="container">
         <div class="header">
             <h1>💕 Dating</h1>
+            <button id="filter-btn" class="filter-toggle-btn" style="display: none;" onclick="toggleFilters()">🔍</button>
         </div>
 
         <!-- Setup Profile Section -->
@@ -650,7 +685,7 @@
 
         <!-- Discovery Section -->
         <div id="discovery-section" class="section">
-            <div class="filters">
+            <div class="filters" id="filters-panel">
                 <div class="filter-group">
                     <label>🎂 Возраст</label>
                     <div class="age-range">
@@ -719,9 +754,10 @@
         let allTags = [];
         let selectedTags = [];
         let allProfiles = [];
-        let allLikes = []; // profiles that liked current user
-        let currentChat = null; // current open chat
+        let allLikes = [];
+        let currentChat = null;
         let filters = { ageMin: 18, ageMax: 99, city: '' };
+        let filtersVisible = false;
         
         const API_BASE = window.location.origin + '/api';
         const tg = window.Telegram?.WebApp;
@@ -746,6 +782,21 @@
             }
         }
 
+        function toggleFilters() {
+            filtersVisible = !filtersVisible;
+            const filterPanel = document.getElementById('filters-panel');
+            const filterBtn = document.getElementById('filter-btn');
+            
+            if (filtersVisible) {
+                filterPanel.classList.add('visible');
+                filterBtn.classList.add('active');
+                hapticFeedback('light');
+            } else {
+                filterPanel.classList.remove('visible');
+                filterBtn.classList.remove('active');
+            }
+        }
+
         async function init() {
             if (!tg?.initDataUnsafe?.user) return;
             const user = tg.initDataUnsafe.user;
@@ -759,6 +810,7 @@
                 userData = existing;
                 document.getElementById('setup-section').classList.remove('active');
                 document.getElementById('navbar').classList.add('visible');
+                document.getElementById('filter-btn').style.display = 'block';
                 switchSection('discovery');
                 loadProfiles();
                 loadLikes();
@@ -831,6 +883,7 @@
             
             document.getElementById('setup-section').classList.remove('active');
             document.getElementById('navbar').classList.add('visible');
+            document.getElementById('filter-btn').style.display = 'block';
             switchSection('discovery');
             loadProfiles();
         }
@@ -938,11 +991,9 @@
         async function handleLikedProfile(likedUserId) {
             hapticFeedback('light');
             
-            // Show popup to like back or skip
             const action = confirm(`👋 ${allLikes.find(l => l.id === likedUserId)?.name}\n\nНажми OK если понравился, Отмена чтобы скрыть`);
             
             if (action) {
-                // Like back
                 const res = await fetch(`${API_BASE}/like`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -955,7 +1006,6 @@
                     loadChats();
                 }
             } else {
-                // Dislike and remove from list
                 await fetch(`${API_BASE}/like`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1048,12 +1098,14 @@
         function switchSection(section) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            filtersVisible = false;
+            document.getElementById('filters-panel').classList.remove('visible');
+            document.getElementById('filter-btn').classList.remove('active');
             
             if (section === 'discovery') {
                 document.getElementById('discovery-section').classList.add('active');
                 document.querySelectorAll('.nav-btn')[0].classList.add('active');
                 
-                // Update filters from input
                 filters.ageMin = parseInt(document.getElementById('filter-age-min').value) || 18;
                 filters.ageMax = parseInt(document.getElementById('filter-age-max').value) || 99;
                 filters.city = document.getElementById('filter-city').value || '';
