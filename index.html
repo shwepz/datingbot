@@ -54,6 +54,7 @@
         .btn { padding: 12px 16px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
         .btn-primary { background: linear-gradient(135deg, var(--accent), #ff8a80); color: white; box-shadow: 0 4px 12px rgba(255, 90, 95, 0.3); width: 100%; }
         .btn-primary:active { transform: scale(0.98); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-secondary { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); width: 100%; margin-top: 8px; }
         .btn-danger { background: #ff3b30; color: white; width: 100%; margin-top: 12px; }
         .btn-small-primary { background: linear-gradient(135deg, var(--success), #81c784); color: white; }
@@ -135,7 +136,7 @@
                 <div class="form-group"><label>📍 Город *</label><input type="text" id="setup-city" placeholder="Твой город" /></div>
                 <div class="form-group"><label>💬 О себе *</label><textarea id="setup-bio" placeholder="Расскажи о себе..."></textarea></div>
                 <div class="form-group"><label>🎯 Интересы</label><div class="tags-container" id="setup-tags-container"></div></div>
-                <button class="btn btn-primary" onclick="saveProfile()">✅ Создать</button>
+                <button id="create-btn" class="btn btn-primary" onclick="saveProfile()">✅ Создать</button>
             </div>
         </div>
         <div id="discovery-section" class="section">
@@ -181,7 +182,7 @@
     <script>
         let userData = null, allTags = [], selectedTags = [], allProfiles = [], allLikes = [], currentChat = null, viewingProfile = null;
         let filters = { ageMin: 18, ageMax: 99, city: '' }, filtersVisible = false;
-        let isEditing = false;
+        let isEditing = false, isSaving = false;
         const API_BASE = window.location.origin + '/api';
         const tg = window.Telegram?.WebApp;
 
@@ -194,18 +195,22 @@
             if (!tg?.initDataUnsafe?.user) return;
             const user = tg.initDataUnsafe.user;
             userData = { id: user.id };
-            allTags = await fetch(`${API_BASE}/tags`).then(r => r.json()).catch(() => []);
+            try {
+                allTags = await fetch(`${API_BASE}/tags`).then(r => r.json()).catch(() => []);
+            } catch (e) { console.error('Tags fetch error:', e); }
             renderSetupTags();
-            const existing = await fetch(`${API_BASE}/user/${user.id}`).then(r => r.ok ? r.json() : null);
-            if (existing?.name && existing?.age && existing?.city && existing?.bio) {
-                userData = existing;
-                document.getElementById('setup-section').classList.remove('active');
-                document.getElementById('navbar').classList.add('visible');
-                switchSection('discovery');
-                loadProfiles();
-                loadLikes();
-                loadChats();
-            }
+            try {
+                const existing = await fetch(`${API_BASE}/user/${user.id}`).then(r => r.ok ? r.json() : null);
+                if (existing?.name && existing?.age && existing?.city && existing?.bio) {
+                    userData = existing;
+                    document.getElementById('setup-section').classList.remove('active');
+                    document.getElementById('navbar').classList.add('visible');
+                    switchSection('discovery');
+                    loadProfiles();
+                    loadLikes();
+                    loadChats();
+                }
+            } catch (e) { console.error('User fetch error:', e); }
         }
 
         function renderSetupTags() {
@@ -219,52 +224,95 @@
         }
 
         async function saveProfile() {
-            const name = document.getElementById('setup-name').value;
-            const age = document.getElementById('setup-age').value;
-            const city = document.getElementById('setup-city').value;
-            const bio = document.getElementById('setup-bio').value;
-            if (!name || !age || !city || !bio) { alert('⚠️ Заполни все поля!'); return; }
-            hapticFeedback('light');
-            const photoFile = document.getElementById('photoInput').files[0];
-            if (photoFile) {
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    const uploadRes = await fetch(`${API_BASE}/upload-photo`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: userData.id, photo_data: e.target.result })
-                    }).then(r => r.json());
-                    finalizeSaveProfile(name, age, city, bio, uploadRes.photo_url);
-                };
-                reader.readAsDataURL(photoFile);
-            } else {
-                finalizeSaveProfile(name, age, city, bio, userData.photo_url);
-            }
-        }
-
-        async function finalizeSaveProfile(name, age, city, bio, photoUrl) {
-            await fetch(`${API_BASE}/user`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: userData.id, name, age: parseInt(age), city, bio, photo_url: photoUrl, tag_ids: selectedTags })
-            });
-            userData = { id: userData.id, name, age: parseInt(age), city, bio, photo_url: photoUrl, tags: [] };
-            hapticFeedback('medium');
-            if (!isEditing) {
-                document.getElementById('setup-section').classList.remove('active');
-                document.getElementById('navbar').classList.add('visible');
-                switchSection('discovery');
-                loadProfiles();
-            } else {
-                isEditing = false;
-                showProfileView();
+            if (isSaving) return;
+            isSaving = true;
+            const btn = document.getElementById('create-btn');
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = '⚡ Нагружаю...';
+            
+            try {
+                const name = document.getElementById('setup-name').value.trim();
+                const age = document.getElementById('setup-age').value;
+                const city = document.getElementById('setup-city').value.trim();
+                const bio = document.getElementById('setup-bio').value.trim();
+                
+                if (!name || !age || !city || !bio) {
+                    alert('⚠️ Заполни все поля!');
+                    return;
+                }
+                
+                hapticFeedback('light');
+                const photoFile = document.getElementById('photoInput').files[0];
+                let photoUrl = userData?.photo_url || null;
+                
+                if (photoFile) {
+                    try {
+                        const reader = new FileReader();
+                        const photoData = await new Promise((resolve) => {
+                            reader.onload = (e) => resolve(e.target.result);
+                            reader.readAsDataURL(photoFile);
+                        });
+                        
+                        const uploadRes = await fetch(`${API_BASE}/upload-photo`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user_id: userData.id, photo_data: photoData })
+                        }).then(r => r.json());
+                        
+                        if (uploadRes.photo_url) {
+                            photoUrl = uploadRes.photo_url;
+                        } else {
+                            alert('⚠️ Не удалось загрузить фото');
+                            return;
+                        }
+                    } catch (e) {
+                        console.error('Photo upload error:', e);
+                        alert('⚠️ Ошибка с фото: ' + e.message);
+                        return;
+                    }
+                }
+                
+                const userRes = await fetch(`${API_BASE}/user`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: userData.id, name, age: parseInt(age), city, bio, photo_url: photoUrl, tag_ids: selectedTags })
+                }).then(r => r.json());
+                
+                if (userRes.error) {
+                    alert('⚠️ Ошибка сохранения: ' + userRes.error);
+                    return;
+                }
+                
+                userData = { id: userData.id, name, age: parseInt(age), city, bio, photo_url: photoUrl, tags: [] };
+                hapticFeedback('medium');
+                
+                if (!isEditing) {
+                    document.getElementById('setup-section').classList.remove('active');
+                    document.getElementById('navbar').classList.add('visible');
+                    switchSection('discovery');
+                    loadProfiles();
+                } else {
+                    isEditing = false;
+                    switchSection('profile');
+                    showProfileView();
+                }
+            } catch (e) {
+                console.error('Save profile error:', e);
+                alert('⚠️ Ошибка: ' + e.message);
+            } finally {
+                isSaving = false;
+                btn.disabled = false;
+                btn.textContent = originalText;
             }
         }
 
         async function loadProfiles() {
-            const params = new URLSearchParams({ age_min: filters.ageMin, age_max: filters.ageMax, city: filters.city });
-            allProfiles = await fetch(`${API_BASE}/profiles/${userData.id}?${params}`).then(r => r.json()).catch(() => []);
-            renderCards();
+            try {
+                const params = new URLSearchParams({ age_min: filters.ageMin, age_max: filters.ageMax, city: filters.city });
+                allProfiles = await fetch(`${API_BASE}/profiles/${userData.id}?${params}`).then(r => r.json()).catch(() => []);
+                renderCards();
+            } catch (e) { console.error('Load profiles error:', e); }
         }
 
         function renderCards() {
@@ -282,19 +330,24 @@
         async function handleSwipe(toUserId, isLike) {
             hapticFeedback('medium');
             const card = document.querySelector(`[data-user-id="${toUserId}"]`);
+            if (!card) return;
             card.classList.add(isLike ? 'swipe-right' : 'swipe-left');
-            const res = await fetch(`${API_BASE}/like`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from_user: userData.id, to_user: toUserId })
-            }).then(r => r.json());
-            if (res.match) { hapticFeedback('heavy'); loadChats(); }
+            try {
+                const res = await fetch(`${API_BASE}/like`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ from_user: userData.id, to_user: toUserId })
+                }).then(r => r.json());
+                if (res.match) { hapticFeedback('heavy'); loadChats(); }
+            } catch (e) { console.error('Like error:', e); }
             setTimeout(() => { allProfiles = allProfiles.filter(p => p.id !== toUserId); renderCards(); }, 500);
         }
 
         async function loadLikes() {
-            allLikes = await fetch(`${API_BASE}/likes/${userData.id}`).then(r => r.json()).catch(() => []);
-            renderLikes();
+            try {
+                allLikes = await fetch(`${API_BASE}/likes/${userData.id}`).then(r => r.json()).catch(() => []);
+                renderLikes();
+            } catch (e) { console.error('Load likes error:', e); }
         }
 
         function renderLikes() {
@@ -342,11 +395,13 @@
 
         async function likeUser(userId, userName, age, city, photo) {
             hapticFeedback('light');
-            await fetch(`${API_BASE}/like`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from_user: userData.id, to_user: userId })
-            }).then(r => r.json());
+            try {
+                await fetch(`${API_BASE}/like`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ from_user: userData.id, to_user: userId })
+                }).then(r => r.json());
+            } catch (e) { console.error('Like error:', e); return; }
             
             allLikes = allLikes.filter(l => l.id !== userId);
             renderLikes();
@@ -357,29 +412,33 @@
 
         async function dislikeUser(userId) {
             hapticFeedback('light');
-            await fetch(`${API_BASE}/like`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from_user: userData.id, to_user: userId, dislike: true })
-            }).then(r => r.json());
+            try {
+                await fetch(`${API_BASE}/like`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ from_user: userData.id, to_user: userId, dislike: true })
+                }).then(r => r.json());
+            } catch (e) { console.error('Dislike error:', e); return; }
             
             allLikes = allLikes.filter(l => l.id !== userId);
             renderLikes();
         }
 
         async function loadChats() {
-            const chats = await fetch(`${API_BASE}/chats/${userData.id}`).then(r => r.json()).catch(() => []);
-            const chatList = document.getElementById('chat-list'), noChats = document.getElementById('no-chats');
-            if (!chats.length) {
-                chatList.innerHTML = '';
-                noChats.style.display = 'block';
-                document.getElementById('chat-badge').style.display = 'none';
-            } else {
-                noChats.style.display = 'none';
-                document.getElementById('chat-badge').textContent = chats.length;
-                document.getElementById('chat-badge').style.display = 'flex';
-                chatList.innerHTML = chats.map(chat => `<div class="chat-item" onclick="openChat(${chat.user_id}, '${chat.user_name}', '${chat.user_photo || ''}')"><div class="chat-header"><div class="chat-avatar">${chat.user_name.charAt(0).toUpperCase()}</div><div class="chat-info"><div class="chat-name">${chat.user_name}</div><div class="chat-preview">${chat.last_message || 'Начни разговор...'}</div></div></div></div>`).join('');
-            }
+            try {
+                const chats = await fetch(`${API_BASE}/chats/${userData.id}`).then(r => r.json()).catch(() => []);
+                const chatList = document.getElementById('chat-list'), noChats = document.getElementById('no-chats');
+                if (!chats.length) {
+                    chatList.innerHTML = '';
+                    noChats.style.display = 'block';
+                    document.getElementById('chat-badge').style.display = 'none';
+                } else {
+                    noChats.style.display = 'none';
+                    document.getElementById('chat-badge').textContent = chats.length;
+                    document.getElementById('chat-badge').style.display = 'flex';
+                    chatList.innerHTML = chats.map(chat => `<div class="chat-item" onclick="openChat(${chat.user_id}, '${chat.user_name}', '${chat.user_photo || ''}')"><div class="chat-header"><div class="chat-avatar">${chat.user_name.charAt(0).toUpperCase()}</div><div class="chat-info"><div class="chat-name">${chat.user_name}</div><div class="chat-preview">${chat.last_message || 'Начни разговор...'}</div></div></div></div>`).join('');
+                }
+            } catch (e) { console.error('Load chats error:', e); }
         }
 
         function openChat(userId, userName, userPhoto) {
@@ -399,21 +458,25 @@
 
         async function loadMessages() {
             if (!currentChat) return;
-            const messages = await fetch(`${API_BASE}/messages/${currentChat.userId}/${userData.id}`).then(r => r.json()).catch(() => []);
-            const msgList = document.getElementById('messages-list');
-            msgList.innerHTML = messages.map(msg => `<div class="message ${msg.from_user === userData.id ? 'own' : 'other'}"><div>${msg.text}</div><div class="message-time">${new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div></div>`).join('');
-            msgList.scrollTop = msgList.scrollHeight;
+            try {
+                const messages = await fetch(`${API_BASE}/messages/${currentChat.userId}/${userData.id}`).then(r => r.json()).catch(() => []);
+                const msgList = document.getElementById('messages-list');
+                msgList.innerHTML = messages.map(msg => `<div class="message ${msg.from_user === userData.id ? 'own' : 'other'}"><div>${msg.text}</div><div class="message-time">${new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div></div>`).join('');
+                msgList.scrollTop = msgList.scrollHeight;
+            } catch (e) { console.error('Load messages error:', e); }
         }
 
         async function sendMessage() {
             const input = document.getElementById('message-input');
             const text = input.value.trim();
             if (!text || !currentChat) return;
-            await fetch(`${API_BASE}/message`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from_user: userData.id, to_user: currentChat.userId, text })
-            }).then(r => r.json());
+            try {
+                await fetch(`${API_BASE}/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ from_user: userData.id, to_user: currentChat.userId, text })
+                }).then(r => r.json());
+            } catch (e) { console.error('Send message error:', e); return; }
             input.value = '';
             loadMessages();
             hapticFeedback('light');
@@ -438,10 +501,12 @@
         }
 
         async function deleteProfile() {
-            if (!confirm('⚠️ Это акция необратима! Вы снова построите профиль. Уставочю?')) return;
+            if (!confirm('⚠️ Это акция необратима! Вы снова построите профиль. Уставокю?')) return;
             if (!confirm('Настоятельно удалить данные?')) return;
             hapticFeedback('heavy');
-            await fetch(`${API_BASE}/user/${userData.id}`, { method: 'DELETE' });
+            try {
+                await fetch(`${API_BASE}/user/${userData.id}`, { method: 'DELETE' });
+            } catch (e) { console.error('Delete error:', e); return; }
             userData = null;
             selectedTags = [];
             document.getElementById('setup-section').classList.add('active');
