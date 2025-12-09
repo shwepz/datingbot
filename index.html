@@ -58,77 +58,43 @@
             margin-bottom: 8px;
         }
 
-        /* GAMIFICATION - Stats Bar */
-        .stats-bar {
-            background: linear-gradient(135deg, var(--accent), #ff8a80);
-            color: white;
-            border-radius: 20px;
+        /* Filters */
+        .filters {
+            background: var(--bg-secondary);
+            border-radius: 16px;
             padding: 16px;
             margin-bottom: 20px;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 12px;
-            box-shadow: 0 8px 20px rgba(255, 90, 95, 0.3);
         }
 
-        .stat {
-            text-align: center;
+        .filter-group {
+            margin-bottom: 16px;
         }
 
-        .stat-value {
-            font-size: 24px;
-            font-weight: 800;
+        .filter-group label {
             display: block;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
         }
 
-        .stat-label {
-            font-size: 11px;
-            margin-top: 4px;
-            opacity: 0.9;
+        .filter-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
         }
 
-        /* Achievement Badges */
-        .achievements {
+        .age-range {
             display: flex;
             gap: 8px;
-            margin-bottom: 20px;
-            overflow-x: auto;
-            padding: 8px 0;
         }
 
-        .achievement {
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .achievement-badge {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            box-shadow: 0 4px 12px var(--shadow);
-        }
-
-        .achievement.unlocked .achievement-badge {
-            background: linear-gradient(135deg, var(--success), #81c784);
-        }
-
-        .achievement.locked .achievement-badge {
-            background: var(--bg-secondary);
-            opacity: 0.5;
-        }
-
-        .achievement-name {
-            font-size: 9px;
-            max-width: 50px;
-            text-align: center;
-            color: var(--text-secondary);
+        .age-range input {
+            flex: 1;
         }
 
         .navbar {
@@ -419,15 +385,15 @@
             transform: scale(0.9);
         }
 
-        /* Matches Grid */
-        .matches-grid {
+        /* Likes Grid */
+        .likes-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
             margin-bottom: 20px;
         }
 
-        .match-item {
+        .like-item {
             background: var(--bg-secondary);
             border-radius: 16px;
             overflow: hidden;
@@ -437,15 +403,15 @@
             box-shadow: 0 4px 12px var(--shadow);
         }
 
-        .match-item:active {
+        .like-item:active {
             transform: scale(0.95);
         }
 
-        .match-status {
+        .like-badge {
             position: absolute;
             top: 8px;
             right: 8px;
-            background: var(--success);
+            background: var(--accent);
             color: white;
             padding: 4px 8px;
             border-radius: 10px;
@@ -454,53 +420,171 @@
             z-index: 10;
         }
 
-        .match-photo {
+        .like-photo {
             width: 100%;
             height: 200px;
             background: var(--border);
             object-fit: cover;
         }
 
-        .match-info {
+        .like-info {
             padding: 12px;
         }
 
-        .match-name {
+        .like-name {
             font-weight: 600;
             font-size: 14px;
             margin-bottom: 4px;
         }
 
-        /* Notifications */
-        .notification {
-            padding: 12px 16px;
+        /* Chat Screen */
+        .chat-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .chat-item {
+            background: var(--bg-secondary);
             border-radius: 12px;
-            margin-bottom: 16px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chat-item:active {
+            background: var(--border);
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .chat-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .chat-info {
+            flex: 1;
+        }
+
+        .chat-name {
+            font-weight: 600;
             font-size: 14px;
-            animation: slideDown 0.3s;
         }
 
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
+        .chat-preview {
+            font-size: 12px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
-        .notification.success {
-            background: linear-gradient(135deg, var(--success), #81c784);
+        /* Messages Screen */
+        .messages-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 12px;
+        }
+
+        .chat-header-bar {
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .chat-back-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text);
+        }
+
+        .messages-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 8px 0;
+        }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 16px;
+            max-width: 85%;
+            word-wrap: break-word;
+        }
+
+        .message.own {
+            align-self: flex-end;
+            background: var(--accent);
             color: white;
-            box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
         }
 
-        .notification.warning {
-            background: linear-gradient(135deg, var(--warning), #ffb74d);
-            color: white;
-            box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
+        .message.other {
+            align-self: flex-start;
+            background: var(--bg-secondary);
+            color: var(--text);
         }
 
-        .likes-remaining {
+        .message-time {
             font-size: 11px;
+            opacity: 0.7;
             margin-top: 4px;
-            opacity: 0.9;
+        }
+
+        .message-input {
+            display: flex;
+            gap: 8px;
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 12px;
+            margin-top: 12px;
+        }
+
+        .message-input input {
+            flex: 1;
+            border: none;
+            background: var(--bg);
+            color: var(--text);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .message-send-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
         }
 
         .empty-state {
@@ -519,27 +603,6 @@
     <div class="container">
         <div class="header">
             <h1>💕 Dating</h1>
-        </div>
-
-        <!-- Stats Bar (Hidden until profile created) -->
-        <div id="stats-section" style="display: none;">
-            <div class="stats-bar">
-                <div class="stat">
-                    <span class="stat-value" id="stat-likes">0</span>
-                    <span class="stat-label">❤️ Лайков</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-value" id="stat-matches">0</span>
-                    <span class="stat-label">💝 Совпадений</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-value" id="stat-streak">0</span>
-                    <span class="stat-label">🔥 Стрик</span>
-                </div>
-            </div>
-
-            <!-- Achievements -->
-            <div class="achievements" id="achievements"></div>
         </div>
 
         <!-- Setup Profile Section -->
@@ -573,32 +636,68 @@
 
                 <div class="form-group">
                     <label>💬 О себе *</label>
-                    <textarea id="setup-bio" placeholder="Расскажи о себе, своих интересах, хобби..."></textarea>
+                    <textarea id="setup-bio" placeholder="Расскажи о себе..."></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label>🎯 Интересы (можно выбрать несколько)</label>
+                    <label>🎯 Интересы</label>
                     <div class="tags-container" id="setup-tags-container"></div>
                 </div>
 
-                <button class="btn btn-primary" onclick="saveProfile()">✅ Создать профиль</button>
+                <button class="btn btn-primary" onclick="saveProfile()">✅ Создать</button>
             </div>
         </div>
 
         <!-- Discovery Section -->
         <div id="discovery-section" class="section">
-            <div id="notifications"></div>
+            <div class="filters">
+                <div class="filter-group">
+                    <label>🎂 Возраст</label>
+                    <div class="age-range">
+                        <input type="number" id="filter-age-min" placeholder="От" min="18" value="18" />
+                        <input type="number" id="filter-age-max" placeholder="До" min="18" value="99" />
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>📍 Город</label>
+                    <input type="text" id="filter-city" placeholder="Оставь пустым для всех" />
+                </div>
+            </div>
+
             <div class="card-stack" id="card-stack"></div>
             <div id="no-profiles" class="empty-state"></div>
         </div>
 
-        <!-- Matches Section -->
-        <div id="matches-section" class="section">
-            <div class="matches-grid" id="matches-grid"></div>
-            <div id="no-matches" class="empty-state" style="display: none;">
+        <!-- Likes Section -->
+        <div id="likes-section" class="section">
+            <div class="likes-grid" id="likes-grid"></div>
+            <div id="no-likes" class="empty-state" style="display: none;">
                 <div class="empty-state-emoji">😔</div>
-                <div>Совпадений нет</div>
-                <div style="font-size: 12px; margin-top: 8px;">Отправляй больше лайков!</div>
+                <div>Кто-то тебя лайкнул</div>
+                <div style="font-size: 12px; margin-top: 8px;">Ответь лайком и напиши ему!</div>
+            </div>
+        </div>
+
+        <!-- Messages Section -->
+        <div id="messages-section" class="section">
+            <div id="chat-list-view">
+                <div class="chat-list" id="chat-list"></div>
+                <div id="no-chats" class="empty-state" style="display: none;">
+                    <div class="empty-state-emoji">📬</div>
+                    <div>Нет переписки</div>
+                </div>
+            </div>
+
+            <div id="chat-detail-view" style="display: none;">
+                <div class="chat-header-bar">
+                    <button class="chat-back-btn" onclick="backToChats()">← Назад</button>
+                    <div id="chat-user-info"></div>
+                </div>
+                <div class="messages-list" id="messages-list"></div>
+                <div class="message-input">
+                    <input type="text" id="message-input" placeholder="Написать..." />
+                    <button class="message-send-btn" onclick="sendMessage()">✈️</button>
+                </div>
             </div>
         </div>
 
@@ -610,10 +709,8 @@
 
     <div class="navbar" id="navbar">
         <button class="nav-btn active" onclick="switchSection('discovery')">❤️</button>
-        <button class="nav-btn" onclick="switchSection('matches')">
-            💬
-            <span class="nav-badge" id="match-badge" style="display: none;">0</span>
-        </button>
+        <button class="nav-btn" onclick="switchSection('likes')">👋<span class="nav-badge" id="likes-badge" style="display: none;">0</span></button>
+        <button class="nav-btn" onclick="switchSection('messages')">📬<span class="nav-badge" id="chat-badge" style="display: none;">0</span></button>
         <button class="nav-btn" onclick="switchSection('profile')">👤</button>
     </div>
 
@@ -622,13 +719,10 @@
         let allTags = [];
         let selectedTags = [];
         let allProfiles = [];
-        let stats = { likes: 0, matches: 0, streak: 0 };
-        let achievements = {
-            firstLike: false,
-            firstMatch: false,
-            tenLikes: false,
-            tenMatches: false
-        };
+        let allLikes = []; // profiles that liked current user
+        let currentChat = null; // current open chat
+        let filters = { ageMin: 18, ageMax: 99, city: '' };
+        
         const API_BASE = window.location.origin + '/api';
         const tg = window.Telegram?.WebApp;
 
@@ -652,55 +746,6 @@
             }
         }
 
-        function showNotification(text, type = 'success') {
-            const container = document.getElementById('notifications');
-            const notif = document.createElement('div');
-            notif.className = `notification ${type}`;
-            notif.innerHTML = text;
-            container.appendChild(notif);
-            setTimeout(() => notif.remove(), 4000);
-        }
-
-        function checkAchievements() {
-            if (stats.likes >= 1 && !achievements.firstLike) {
-                achievements.firstLike = true;
-                showNotification('🏆 <strong>Достижение разблокировано!</strong><br>Первый лайк', 'success');
-                hapticFeedback('heavy');
-            }
-            if (stats.matches >= 1 && !achievements.firstMatch) {
-                achievements.firstMatch = true;
-                showNotification('🏆 <strong>Достижение разблокировано!</strong><br>Первое совпадение', 'success');
-                hapticFeedback('heavy');
-            }
-            if (stats.likes >= 10 && !achievements.tenLikes) {
-                achievements.tenLikes = true;
-                showNotification('🏆 <strong>Достижение разблокировано!</strong><br>10 лайков', 'success');
-                hapticFeedback('heavy');
-            }
-            if (stats.matches >= 10 && !achievements.tenMatches) {
-                achievements.tenMatches = true;
-                showNotification('🏆 <strong>Достижение разблокировано!</strong><br>10 совпадений', 'success');
-                hapticFeedback('heavy');
-            }
-        }
-
-        function renderAchievements() {
-            const container = document.getElementById('achievements');
-            const achievementsList = [
-                { key: 'firstLike', emoji: '❤️', name: 'Первый лайк' },
-                { key: 'firstMatch', emoji: '💝', name: 'Совпадение' },
-                { key: 'tenLikes', emoji: '🔥', name: '10 лайков' },
-                { key: 'tenMatches', emoji: '👑', name: '10 совпадений' }
-            ];
-            
-            container.innerHTML = achievementsList.map(ach => `
-                <div class="achievement ${achievements[ach.key] ? 'unlocked' : 'locked'}">
-                    <div class="achievement-badge">${ach.emoji}</div>
-                    <div class="achievement-name">${ach.name}</div>
-                </div>
-            `).join('');
-        }
-
         async function init() {
             if (!tg?.initDataUnsafe?.user) return;
             const user = tg.initDataUnsafe.user;
@@ -713,12 +758,11 @@
             if (existing?.name && existing?.age && existing?.city && existing?.bio) {
                 userData = existing;
                 document.getElementById('setup-section').classList.remove('active');
-                document.getElementById('stats-section').style.display = 'block';
                 document.getElementById('navbar').classList.add('visible');
-                renderAchievements();
                 switchSection('discovery');
                 loadProfiles();
-                loadMatches();
+                loadLikes();
+                loadChats();
             }
         }
 
@@ -746,7 +790,7 @@
             const bio = document.getElementById('setup-bio').value;
 
             if (!name || !age || !city || !bio) {
-                showNotification('⚠️ Заполни все поля!', 'warning');
+                alert('⚠️ Заполни все поля!');
                 return;
             }
 
@@ -782,20 +826,22 @@
                 })
             });
 
-            userData = { id: userData.id, name, age: parseInt(age), city, bio, photo_url: photoUrl };
+            userData = { id: userData.id, name, age: parseInt(age), city, bio, photo_url: photoUrl, tags: [] };
             hapticFeedback('medium');
-            showNotification('✅ Профиль создан! Начинай лайкать!', 'success');
             
             document.getElementById('setup-section').classList.remove('active');
-            document.getElementById('stats-section').style.display = 'block';
             document.getElementById('navbar').classList.add('visible');
-            renderAchievements();
             switchSection('discovery');
             loadProfiles();
         }
 
         async function loadProfiles() {
-            allProfiles = await fetch(`${API_BASE}/profiles/${userData.id}`).then(r => r.json()).catch(() => []);
+            const params = new URLSearchParams({
+                age_min: filters.ageMin,
+                age_max: filters.ageMax,
+                city: filters.city
+            });
+            allProfiles = await fetch(`${API_BASE}/profiles/${userData.id}?${params}`).then(r => r.json()).catch(() => []);
             renderCards();
         }
 
@@ -805,9 +851,9 @@
             
             if (!allProfiles.length) {
                 noProfiles.innerHTML = `
-                    <div class="empty-state-emoji">🎉</div>
-                    <div>Отлично!</div>
-                    <div style="font-size: 12px; margin-top: 8px;">Ты просмотрел всех. Заходи позже!</div>
+                    <div class="empty-state-emoji">🌟</div>
+                    <div>Профилей не найдено</div>
+                    <div style="font-size: 12px; margin-top: 8px;">Ты просмотрел всех. Попробуй изменить фильтры!</div>
                 `;
                 stack.innerHTML = '';
                 return;
@@ -847,26 +893,10 @@
                 body: JSON.stringify({ from_user: userData.id, to_user: toUserId })
             }).then(r => r.json());
 
-            if (res.limit_reached) {
-                showNotification('⚠️ Лимит лайков исчерпан (20/день)!<br><span class="likes-remaining">Приходи завтра 🌙</span>', 'warning');
-                hapticFeedback('heavy');
-            }
-
             if (res.match) {
-                stats.matches++;
-                stats.streak = Math.max(stats.streak, stats.likes + stats.matches);
-                showNotification(`🎉 Совпадение! ${res.icebreaker}`, 'success');
                 hapticFeedback('heavy');
+                loadChats();
             }
-
-            if (isLike) {
-                stats.likes++;
-            }
-
-            document.getElementById('stat-likes').textContent = stats.likes;
-            document.getElementById('stat-matches').textContent = stats.matches;
-            document.getElementById('stat-streak').textContent = stats.streak;
-            checkAchievements();
 
             setTimeout(() => {
                 allProfiles = allProfiles.filter(p => p.id !== toUserId);
@@ -874,32 +904,145 @@
             }, 500);
         }
 
-        async function loadMatches() {
-            const matches = await fetch(`${API_BASE}/matches/${userData.id}`).then(r => r.json()).catch(() => []);
-            const grid = document.getElementById('matches-grid');
-            const noMatches = document.getElementById('no-matches');
+        async function loadLikes() {
+            allLikes = await fetch(`${API_BASE}/likes/${userData.id}`).then(r => r.json()).catch(() => []);
+            renderLikes();
+        }
 
-            if (!matches.length) {
+        function renderLikes() {
+            const grid = document.getElementById('likes-grid');
+            const noLikes = document.getElementById('no-likes');
+
+            if (!allLikes.length) {
                 grid.innerHTML = '';
-                noMatches.style.display = 'block';
+                noLikes.style.display = 'block';
+                document.getElementById('likes-badge').style.display = 'none';
             } else {
-                noMatches.style.display = 'none';
-                document.getElementById('match-badge').textContent = matches.length;
-                document.getElementById('match-badge').style.display = 'flex';
-                stats.matches = matches.length;
-                document.getElementById('stat-matches').textContent = matches.length;
+                noLikes.style.display = 'none';
+                document.getElementById('likes-badge').textContent = allLikes.length;
+                document.getElementById('likes-badge').style.display = 'flex';
 
-                grid.innerHTML = matches.map(match => `
-                    <div class="match-item">
-                        <div class="match-status">💬 Новый</div>
-                        ${match.photo_url ? `<img src="${match.photo_url}" class="match-photo" />` : '<div class="match-photo"></div>'}
-                        <div class="match-info">
-                            <div class="match-name">${match.name}, ${match.age || 'N/A'}</div>
-                            <div style="font-size: 12px; color: var(--text-secondary);">📍 ${match.city}</div>
+                grid.innerHTML = allLikes.map(like => `
+                    <div class="like-item" onclick="handleLikedProfile(${like.id})">
+                        <div class="like-badge">❤️</div>
+                        ${like.photo_url ? `<img src="${like.photo_url}" class="like-photo" />` : '<div class="like-photo"></div>'}
+                        <div class="like-info">
+                            <div class="like-name">${like.name}, ${like.age}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">📍 ${like.city}</div>
                         </div>
                     </div>
                 `).join('');
             }
+        }
+
+        async function handleLikedProfile(likedUserId) {
+            hapticFeedback('light');
+            
+            // Show popup to like back or skip
+            const action = confirm(`👋 ${allLikes.find(l => l.id === likedUserId)?.name}\n\nНажми OK если понравился, Отмена чтобы скрыть`);
+            
+            if (action) {
+                // Like back
+                const res = await fetch(`${API_BASE}/like`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ from_user: userData.id, to_user: likedUserId })
+                }).then(r => r.json());
+
+                if (res.match) {
+                    hapticFeedback('heavy');
+                    alert('🎉 Матч! Пиши ему первым!');
+                    loadChats();
+                }
+            } else {
+                // Dislike and remove from list
+                await fetch(`${API_BASE}/like`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ from_user: userData.id, to_user: likedUserId, dislike: true })
+                }).then(r => r.json());
+                hapticFeedback('light');
+            }
+
+            allLikes = allLikes.filter(l => l.id !== likedUserId);
+            renderLikes();
+        }
+
+        async function loadChats() {
+            const chats = await fetch(`${API_BASE}/chats/${userData.id}`).then(r => r.json()).catch(() => []);
+            const listView = document.getElementById('chat-list-view');
+            const chatList = document.getElementById('chat-list');
+            const noChats = document.getElementById('no-chats');
+
+            if (!chats.length) {
+                chatList.innerHTML = '';
+                noChats.style.display = 'block';
+                document.getElementById('chat-badge').style.display = 'none';
+            } else {
+                noChats.style.display = 'none';
+                document.getElementById('chat-badge').textContent = chats.length;
+                document.getElementById('chat-badge').style.display = 'flex';
+
+                chatList.innerHTML = chats.map(chat => `
+                    <div class="chat-item" onclick="openChat(${chat.user_id}, '${chat.user_name}', '${chat.user_photo || ''}')">
+                        <div class="chat-header">
+                            <div class="chat-avatar">${chat.user_name.charAt(0).toUpperCase()}</div>
+                            <div class="chat-info">
+                                <div class="chat-name">${chat.user_name}</div>
+                                <div class="chat-preview">${chat.last_message || 'Начни разговор...'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function openChat(userId, userName, userPhoto) {
+            currentChat = { userId, userName, userPhoto };
+            document.getElementById('chat-list-view').style.display = 'none';
+            document.getElementById('chat-detail-view').style.display = 'flex';
+            document.getElementById('chat-detail-view').style.flexDirection = 'column';
+            document.getElementById('chat-user-info').textContent = userName;
+            loadMessages();
+        }
+
+        function backToChats() {
+            currentChat = null;
+            document.getElementById('chat-list-view').style.display = 'block';
+            document.getElementById('chat-detail-view').style.display = 'none';
+        }
+
+        async function loadMessages() {
+            if (!currentChat) return;
+            const messages = await fetch(`${API_BASE}/messages/${currentChat.userId}/${userData.id}`).then(r => r.json()).catch(() => []);
+            const msgList = document.getElementById('messages-list');
+            msgList.innerHTML = messages.map(msg => `
+                <div class="message ${msg.from_user === userData.id ? 'own' : 'other'}">
+                    <div>${msg.text}</div>
+                    <div class="message-time">${new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+            `).join('');
+            msgList.scrollTop = msgList.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text || !currentChat) return;
+
+            await fetch(`${API_BASE}/message`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    from_user: userData.id,
+                    to_user: currentChat.userId,
+                    text
+                })
+            }).then(r => r.json());
+
+            input.value = '';
+            loadMessages();
+            hapticFeedback('light');
         }
 
         function switchSection(section) {
@@ -909,14 +1052,24 @@
             if (section === 'discovery') {
                 document.getElementById('discovery-section').classList.add('active');
                 document.querySelectorAll('.nav-btn')[0].classList.add('active');
+                
+                // Update filters from input
+                filters.ageMin = parseInt(document.getElementById('filter-age-min').value) || 18;
+                filters.ageMax = parseInt(document.getElementById('filter-age-max').value) || 99;
+                filters.city = document.getElementById('filter-city').value || '';
                 loadProfiles();
-            } else if (section === 'matches') {
-                document.getElementById('matches-section').classList.add('active');
+            } else if (section === 'likes') {
+                document.getElementById('likes-section').classList.add('active');
                 document.querySelectorAll('.nav-btn')[1].classList.add('active');
-                loadMatches();
+                loadLikes();
+            } else if (section === 'messages') {
+                document.getElementById('messages-section').classList.add('active');
+                document.querySelectorAll('.nav-btn')[2].classList.add('active');
+                backToChats();
+                loadChats();
             } else if (section === 'profile') {
                 document.getElementById('profile-section').classList.add('active');
-                document.querySelectorAll('.nav-btn')[2].classList.add('active');
+                document.querySelectorAll('.nav-btn')[3].classList.add('active');
                 showProfileView();
             }
         }
@@ -934,7 +1087,6 @@
                         <h3>💬 О мне</h3>
                         <p style="margin-top: 8px;">${userData.bio}</p>
                     </div>
-                    <button class="btn btn-primary" onclick="alert('✏️ Редактирование в разработке!')">✏️ Редактировать</button>
                 </div>
             `;
         }
