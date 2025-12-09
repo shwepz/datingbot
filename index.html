@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Dating WebApp</title>
+    <title>Дейтинг Апп</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
@@ -500,43 +500,43 @@
         <!-- Setup Profile Section -->
         <div id="setup-section" class="section active">
             <div class="profile-form">
-                <h2 style="text-align: center; margin-bottom: 20px;">Create Your Profile</h2>
+                <h2 style="text-align: center; margin-bottom: 20px;">Создай профиль</h2>
                 
                 <div class="photo-upload" onclick="document.getElementById('photoInput').click()">
                     <img id="photoPreview" style="display: none;" />
                     <div class="photo-upload-text" id="photoPlaceholder">
                         <div style="font-size: 32px; margin-bottom: 4px;">📸</div>
-                        <div>Upload Photo</div>
+                        <div>Загруз фото</div>
                     </div>
                 </div>
                 <input type="file" id="photoInput" accept="image/*" />
 
                 <div class="form-group">
-                    <label>Name *</label>
-                    <input type="text" id="setup-name" placeholder="Your name" />
+                    <label>Имя *</label>
+                    <input type="text" id="setup-name" placeholder="Твоё имя" />
                 </div>
 
                 <div class="form-group">
-                    <label>Age *</label>
-                    <input type="number" id="setup-age" placeholder="Age" min="18" />
+                    <label>Возраст *</label>
+                    <input type="number" id="setup-age" placeholder="Возраст" min="18" />
                 </div>
 
                 <div class="form-group">
-                    <label>City *</label>
-                    <input type="text" id="setup-city" placeholder="Your city" />
+                    <label>Город *</label>
+                    <input type="text" id="setup-city" placeholder="Твой город" />
                 </div>
 
                 <div class="form-group">
-                    <label>Bio *</label>
-                    <textarea id="setup-bio" placeholder="Tell us about yourself"></textarea>
+                    <label>О себе *</label>
+                    <textarea id="setup-bio" placeholder="Расскажи о себе"></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label>Interests (Select multiple)</label>
+                    <label>Интересы (выбери несколько)</label>
                     <div class="tags-container" id="setup-tags-container"></div>
                 </div>
 
-                <button class="btn btn-primary" onclick="saveProfile()">💾 Create Profile</button>
+                <button class="btn btn-primary" onclick="saveProfile()">✅ Создать профиль</button>
             </div>
         </div>
 
@@ -545,21 +545,20 @@
             <div id="like-alert"></div>
             <div id="match-alert"></div>
             <div class="card-stack" id="card-stack"></div>
-            <div style="text-align: center; color: var(--text-secondary); font-size: 14px;" id="no-profiles">Loading profiles...</div>
+            <div style="text-align: center; color: var(--text-secondary); font-size: 14px;" id="no-profiles">Загружаем профили...</div>
         </div>
 
         <!-- Matches Section -->
         <div id="matches-section" class="section">
             <div id="match-icebreaker" style="margin-bottom: 16px;"></div>
             <div class="matches-grid" id="matches-grid"></div>
-            <div id="no-matches" style="text-align: center; color: var(--text-secondary);">No matches yet 😔</div>
+            <div id="no-matches" style="text-align: center; color: var(--text-secondary);">Совпадений нет 😔</div>
         </div>
 
         <!-- Profile Edit Section -->
         <div id="profile-section" class="section">
             <div id="profile-view-container"></div>
-            <button class="btn btn-primary" onclick="editProfile()">✏️ Edit Profile</button>
-            <button class="btn btn-secondary" onclick="showEditForm()">Change Details</button>
+            <button class="btn btn-primary" onclick="editProfile()">✏️ Редактировать</button>
         </div>
     </div>
 
@@ -574,6 +573,7 @@
         let allTags = [];
         let selectedTags = [];
         let currentPhotoData = null;
+        let allProfiles = [];  // Store all profiles
         const API_BASE = window.location.origin + '/api';
         const tg = window.Telegram?.WebApp;
 
@@ -645,7 +645,7 @@
             const bio = document.getElementById('setup-bio').value;
 
             if (!name || !age || !city || !bio) {
-                alert('⚠️ Please fill all fields');
+                alert('⚠️ Заполни все поля');
                 return;
             }
 
@@ -700,19 +700,23 @@
 
         async function loadProfiles() {
             const profiles = await fetch(`${API_BASE}/profiles/${userData.id}`).then(r => r.json());
-            renderCards(profiles);
+            allProfiles = profiles;  // Store all profiles
+            renderCards();
         }
 
-        function renderCards(profiles) {
+        function renderCards() {
             const stack = document.getElementById('card-stack');
-            if (profiles.length === 0) {
-                document.getElementById('no-profiles').textContent = 'No more profiles';
+            if (allProfiles.length === 0) {
+                document.getElementById('no-profiles').textContent = 'Больше профилей нет 😔';
+                stack.innerHTML = '';
                 return;
             }
 
             document.getElementById('no-profiles').style.display = 'none';
-            stack.innerHTML = profiles.map((profile, i) => `
-                <div class="card ${i === 0 ? 'active' : ''}" data-user-id="${profile.id}">
+            // Only show the first card
+            const profile = allProfiles[0];
+            stack.innerHTML = `
+                <div class="card active" data-user-id="${profile.id}">
                     <div>
                         ${profile.photo_url ? `<img src="${profile.photo_url}" class="card-photo" />` : '<div class="card-photo"></div>'}
                         <div class="card-info">
@@ -729,7 +733,7 @@
                         <button class="action-btn like" onclick="handleSwipe(${profile.id}, true)">❤️</button>
                     </div>
                 </div>
-            `).join('');
+            `;
         }
 
         async function handleSwipe(toUserId, isLike) {
@@ -748,18 +752,19 @@
             }).then(r => r.json());
 
             if (res.limit_reached) {
-                document.getElementById('like-alert').innerHTML = '<div class="alert warning">⚠️ Daily limit reached!</div>';
+                document.getElementById('like-alert').innerHTML = '<div class="alert warning">⚠️ Лимит лайков исчерпан (20 в день)!</div>';
                 hapticFeedback('heavy');
             }
 
             if (res.match) {
-                document.getElementById('match-alert').innerHTML = `<div class="alert success">🎉 Match! ${res.icebreaker}</div>`;
+                document.getElementById('match-alert').innerHTML = `<div class="alert success">🎉 Совпадение! ${res.icebreaker}</div>`;
                 hapticFeedback('heavy');
             }
 
             setTimeout(() => {
-                card.remove();
-                loadProfiles();
+                // Remove swiped profile from the list
+                allProfiles = allProfiles.filter(p => p.id !== toUserId);
+                renderCards();
             }, 500);
         }
 
@@ -795,16 +800,16 @@
                         <div class="profile-city">📍 ${userData.city}</div>
                     </div>
                     <div class="profile-stat">
-                        <span>Age</span>
+                        <span>Возраст</span>
                         <span>${userData.age}</span>
                     </div>
                     <div class="profile-stat">
-                        <span>Bio</span>
+                        <span>О себе</span>
                         <span style="text-align: right;">${userData.bio}</span>
                     </div>
                     ${(userData.tags && userData.tags.length > 0) ? `
                         <div class="profile-stat">
-                            <span>Interests</span>
+                            <span>Интересы</span>
                             <span>${userData.tags.map(t => t.emoji).join(' ')}</span>
                         </div>
                     ` : ''}
@@ -820,10 +825,6 @@
             selectedTags = (userData.tags || []).map(t => t.id);
             renderSetupTags();
             switchSection('setup');
-        }
-
-        function showEditForm() {
-            alert('Edit form functionality coming soon!');
         }
 
         function switchSection(section) {
