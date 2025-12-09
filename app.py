@@ -143,11 +143,10 @@ def init_db():
                     CREATE TABLE IF NOT EXISTS messages (
                         id SERIAL PRIMARY KEY,
                         from_user BIGINT,
-                        to_user BIGINT,
                         text TEXT,
+                        chat_id INTEGER,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY(from_user) REFERENCES users(id),
-                        FOREIGN KEY(to_user) REFERENCES users(id)
+                        FOREIGN KEY(chat_id) REFERENCES chats(id)
                     )
                 ''')
                 conn.commit()
@@ -315,31 +314,30 @@ def get_profiles(user_id):
 @app.route('/api/like', methods=['POST'])
 def like_profile():
     data = request.json
-    
-    reset_daily_likes(data['from_user'])
-    user = execute_query('SELECT daily_likes_used FROM users WHERE id = ?', (data['from_user'],), fetch_one=True)
-    
-    if user and user['daily_likes_used'] >= 20:
-        return jsonify({'error': 'Daily like limit reached', 'limit_reached': True}), 429
+    from_user = data.get('from_user')
+    to_user = data.get('to_user')
+    is_dislike = data.get('dislike', False)
     
     try:
-        if data.get('dislike'):
-            execute_query('DELETE FROM likes WHERE from_user = ? AND to_user = ?', (data['from_user'], data['to_user']), commit=True)
-        else:
-            execute_query('''
-                INSERT INTO likes (from_user, to_user) VALUES (?, ?) ON CONFLICT DO NOTHING
-            ''', (data['from_user'], data['to_user']), commit=True)
-            
-            execute_query('UPDATE users SET daily_likes_used = daily_likes_used + 1 WHERE id = ?', (data['from_user'],), commit=True)
+        if is_dislike:
+            execute_query('DELETE FROM likes WHERE from_user = ? AND to_user = ?', (from_user, to_user), commit=True)
+            return jsonify({'match': False})
         
-        mutual = execute_query('SELECT * FROM likes WHERE from_user = ? AND to_user = ?', (data['to_user'], data['from_user']), fetch_one=True)
+        # Check if already liked
+        existing = execute_query('SELECT * FROM likes WHERE from_user = ? AND to_user = ?', (from_user, to_user), fetch_one=True)
+        if not existing:
+            execute_query('INSERT INTO likes (from_user, to_user) VALUES (?, ?)', (from_user, to_user), commit=True)
         
-        if mutual and not data.get('dislike'):
-            u1, u2 = sorted([data['from_user'], data['to_user']])
+        # Check for mutual like
+        mutual = execute_query('SELECT * FROM likes WHERE from_user = ? AND to_user = ?', (to_user, from_user), fetch_one=True)
+        
+        if mutual:
+            # Create chat
+            u1, u2 = sorted([from_user, to_user])
             execute_query('INSERT INTO chats (user1_id, user2_id) VALUES (?, ?) ON CONFLICT DO NOTHING', (u1, u2), commit=True)
-            return jsonify({'match': True, 'chat_created': True})
+            return jsonify({'match': True})
         
-        return jsonify({'match': False, 'chat_created': False})
+        return jsonify({'match': False})
     except Exception as e:
         print(f"Like error: {e}")
         return jsonify({'error': str(e), 'match': False}), 400
@@ -355,6 +353,7 @@ def get_likes(user_id):
         ''', (user_id,), fetch_all=True)
         return jsonify(likes or [])
     except Exception as e:
+        print(f"Get likes error: {e}")
         return jsonify([])
 
 @app.route('/api/chats/<int:user_id>', methods=['GET'])
@@ -365,44 +364,67 @@ def get_chats(user_id):
                 CASE WHEN user1_id = %s THEN user2_id ELSE user1_id END as user_id,
                 u.name as user_name,
                 u.photo_url as user_photo,
-                (SELECT text FROM messages m 
-                 WHERE (m.from_user = %s AND m.to_user = CASE WHEN chats.user1_id = %s THEN chats.user2_id ELSE chats.user1_id END) 
-                 OR (m.from_user = CASE WHEN chats.user1_id = %s THEN chats.user2_id ELSE chats.user1_id END AND m.to_user = %s) 
-                 ORDER BY m.created_at DESC LIMIT 1) as last_message,
-                chats.created_at
-            FROM chats
-            JOIN users u ON (CASE WHEN user1_id = %s THEN user2_id ELSE user1_id END) = u.id
-            WHERE user1_id = %s OR user2_id = %s
-            ORDER BY chats.created_at DESC
-        ''', (user_id, user_id, user_id, user_id, user_id, user_id, user_id, user_id), fetch_all=True)
+                c.id as chat_id,
+                c.created_at
+            FROM chats c
+            JOIN users u ON (CASE WHEN c.user1_id = %s THEN c.user2_id ELSE c.user1_id END) = u.id
+            WHERE c.user1_id = %s OR c.user2_id = %s
+            ORDER BY c.created_at DESC
+        ''', (user_id, user_id, user_id, user_id), fetch_all=True)
+        
+        # Get last message for each chat
+        for chat in (chats or []):
+            last_msg = execute_query('''
+                SELECT text FROM messages WHERE chat_id = ? ORDER BY created_at DESC LIMIT 1
+            ''', (chat['chat_id'],), fetch_one=True)
+            chat['last_message'] = last_msg['text'] if last_msg else 'Начни разговор...'
+        
         return jsonify(chats or [])
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Get chats error: {e}")
         return jsonify([])
 
 @app.route('/api/messages/<int:user_id_1>/<int:user_id_2>', methods=['GET'])
 def get_messages(user_id_1, user_id_2):
     try:
+        u1, u2 = sorted([user_id_1, user_id_2])
+        chat = execute_query('SELECT id FROM chats WHERE user1_id = ? AND user2_id = ?', (u1, u2), fetch_one=True)
+        
+        if not chat:
+            return jsonify([])
+        
         messages = execute_query('''
             SELECT from_user, text, created_at
             FROM messages
-            WHERE (from_user = ? AND to_user = ?) OR (from_user = ? AND to_user = ?)
+            WHERE chat_id = ?
             ORDER BY created_at ASC
-        ''', (user_id_1, user_id_2, user_id_2, user_id_1), fetch_all=True)
+        ''', (chat['id'],), fetch_all=True)
         return jsonify(messages or [])
     except Exception as e:
-        print(f"Error in get_messages: {e}")
+        print(f"Get messages error: {e}")
         return jsonify([])
 
 @app.route('/api/message', methods=['POST'])
 def send_message():
     data = request.json
+    from_user = data.get('from_user')
+    to_user = data.get('to_user')
+    text = data.get('text')
+    
     try:
+        u1, u2 = sorted([from_user, to_user])
+        chat = execute_query('SELECT id FROM chats WHERE user1_id = ? AND user2_id = ?', (u1, u2), fetch_one=True)
+        
+        if not chat:
+            execute_query('INSERT INTO chats (user1_id, user2_id) VALUES (?, ?)', (u1, u2), commit=True)
+            chat = execute_query('SELECT id FROM chats WHERE user1_id = ? AND user2_id = ?', (u1, u2), fetch_one=True)
+        
         execute_query('''
-            INSERT INTO messages (from_user, to_user, text) VALUES (?, ?, ?)
-        ''', (data['from_user'], data['to_user'], data['text']), commit=True)
+            INSERT INTO messages (from_user, chat_id, text) VALUES (?, ?, ?)
+        ''', (from_user, chat['id'], text), commit=True)
         return jsonify({'success': True})
     except Exception as e:
+        print(f"Send message error: {e}")
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/upload-photo', methods=['POST'])
