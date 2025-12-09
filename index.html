@@ -54,7 +54,8 @@
         .btn { padding: 12px 16px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
         .btn-primary { background: linear-gradient(135deg, var(--accent), #ff8a80); color: white; box-shadow: 0 4px 12px rgba(255, 90, 95, 0.3); width: 100%; }
         .btn-primary:active { transform: scale(0.98); }
-        .btn-secondary { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
+        .btn-secondary { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); width: 100%; margin-top: 8px; }
+        .btn-danger { background: #ff3b30; color: white; width: 100%; margin-top: 12px; }
         .btn-small-primary { background: linear-gradient(135deg, var(--success), #81c784); color: white; }
         .btn-small-secondary { background: #ff6b6b; color: white; }
         .btn-small-primary:active, .btn-small-secondary:active { transform: scale(0.95); }
@@ -114,6 +115,8 @@
         .message-send-btn { background: var(--accent); color: white; border: none; border-radius: 8px; width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; }
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
         .empty-state-emoji { font-size: 48px; margin-bottom: 12px; }
+        .btn-group { display: flex; gap: 8px; margin-top: 12px; }
+        .btn-group .btn { flex: 1; margin: 0; }
     </style>
 </head>
 <body>
@@ -178,6 +181,7 @@
     <script>
         let userData = null, allTags = [], selectedTags = [], allProfiles = [], allLikes = [], currentChat = null, viewingProfile = null;
         let filters = { ageMin: 18, ageMax: 99, city: '' }, filtersVisible = false;
+        let isEditing = false;
         const API_BASE = window.location.origin + '/api';
         const tg = window.Telegram?.WebApp;
 
@@ -234,7 +238,7 @@
                 };
                 reader.readAsDataURL(photoFile);
             } else {
-                finalizeSaveProfile(name, age, city, bio, null);
+                finalizeSaveProfile(name, age, city, bio, userData.photo_url);
             }
         }
 
@@ -246,10 +250,15 @@
             });
             userData = { id: userData.id, name, age: parseInt(age), city, bio, photo_url: photoUrl, tags: [] };
             hapticFeedback('medium');
-            document.getElementById('setup-section').classList.remove('active');
-            document.getElementById('navbar').classList.add('visible');
-            switchSection('discovery');
-            loadProfiles();
+            if (!isEditing) {
+                document.getElementById('setup-section').classList.remove('active');
+                document.getElementById('navbar').classList.add('visible');
+                switchSection('discovery');
+                loadProfiles();
+            } else {
+                isEditing = false;
+                showProfileView();
+            }
         }
 
         async function loadProfiles() {
@@ -303,7 +312,7 @@
                         <img src="${like.photo_url || ''}" class="like-photo" onclick="viewProfileDetail(${like.id}, '${like.name}', ${like.age}, '${like.city}', '${like.photo_url || ''}')" />
                         <div class="like-info">
                             <div class="like-header">
-                                <div class="like-name" onclick="viewProfileDetail(${like.id}, '${like.name}', ${like.age}, '${like.city}', '${like.photo_url || ''}')">${like.name}, ${like.age}</div>
+                                <div class="like-name" onclick="viewProfileDetail(${like.id}, '${like.name}', ${like.age}, '${like.city}', '${like.photo_url || ''}')">​${like.name}, ${like.age}</div>
                                 <div class="like-badge">❤️</div>
                             </div>
                             <div class="like-location">📍 ${like.city}</div>
@@ -410,6 +419,36 @@
             hapticFeedback('light');
         }
 
+        function editProfile() {
+            isEditing = true;
+            selectedTags = userData.tags?.map(t => t.id) || [];
+            document.getElementById('setup-name').value = userData.name || '';
+            document.getElementById('setup-age').value = userData.age || '';
+            document.getElementById('setup-city').value = userData.city || '';
+            document.getElementById('setup-bio').value = userData.bio || '';
+            if (userData.photo_url) {
+                document.getElementById('photoPreview').src = userData.photo_url;
+                document.getElementById('photoPreview').style.display = 'block';
+                document.getElementById('photoPlaceholder').style.display = 'none';
+            }
+            renderSetupTags();
+            document.getElementById('setup-section').classList.add('active');
+            document.getElementById('profile-section').classList.remove('active');
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        }
+
+        async function deleteProfile() {
+            if (!confirm('⚠️ Это акция необратима! Вы снова построите профиль. Уставочю?')) return;
+            if (!confirm('Настоятельно удалить данные?')) return;
+            hapticFeedback('heavy');
+            await fetch(`${API_BASE}/user/${userData.id}`, { method: 'DELETE' });
+            userData = null;
+            selectedTags = [];
+            document.getElementById('setup-section').classList.add('active');
+            document.getElementById('profile-section').classList.remove('active');
+            document.getElementById('navbar').classList.remove('visible');
+        }
+
         function switchSection(section) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -442,7 +481,7 @@
 
         function showProfileView() {
             const container = document.getElementById('profile-view-container');
-            container.innerHTML = `<div class="profile-form"><div style="text-align: center; margin-bottom: 20px;">${userData.photo_url ? `<img src="${userData.photo_url}" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin-bottom: 16px; box-shadow: 0 4px 12px var(--shadow);" />` : ''}<h2>${userData.name}, ${userData.age}</h2><p style="color: var(--text-secondary); margin: 4px 0 16px;">📍 ${userData.city}</p></div><div style="margin-bottom: 16px;"><h3>💬 О мне</h3><p style="margin-top: 8px;">${userData.bio}</p></div></div>`;
+            container.innerHTML = `<div class="profile-form"><div style="text-align: center; margin-bottom: 20px;">${userData.photo_url ? `<img src="${userData.photo_url}" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; margin-bottom: 16px; box-shadow: 0 4px 12px var(--shadow);" />` : ''}<h2>${userData.name}, ${userData.age}</h2><p style="color: var(--text-secondary); margin: 4px 0 16px;">📍 ${userData.city}</p></div><div style="margin-bottom: 16px;"><h3>💬 О мне</h3><p style="margin-top: 8px;">${userData.bio}</p></div><div class="btn-group"><button class="btn btn-secondary" onclick="editProfile()">✏️ Редактировать</button></div><button class="btn btn-danger" onclick="deleteProfile()">🗑️ Удалить профиль</button></div>`;
         }
 
         document.getElementById('photoInput').addEventListener('change', (e) => {
