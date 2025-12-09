@@ -10,9 +10,13 @@ from functools import wraps
 import psycopg
 from psycopg.rows import dict_row
 import base64
+import logging
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
+
+# Suppress verbose logging
+logging.getLogger('psycopg').setLevel(logging.WARNING)
 
 # Конфиг
 BOT_TOKEN = os.getenv('BOT_TOKEN', 'your_bot_token_here')
@@ -58,7 +62,7 @@ def execute_query(query, params=(), fetch_one=False, fetch_all=False, commit=Fal
         conn.close()
 
 def safe_execute(query, params=()):
-    """Execute query safely, rolling back on error"""
+    """Execute query safely, rolling back on error - silent for non-critical ops"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -70,7 +74,7 @@ def safe_execute(query, params=()):
             conn.commit()
             return True
     except Exception as e:
-        print(f"Safe execute error (non-critical): {e}")
+        # Silent - these are expected if columns already exist
         conn.rollback()
         return False
     finally:
@@ -189,7 +193,7 @@ def init_db():
                 if result and result['cnt'] == 0:
                     tags_data = [
                         ('Sport', '⚽'),
-                        ('Crypto', '🢰'),
+                        ('Crypto', '🤑'),
                         ('Travel', '✈️'),
                         ('Music', '🎵'),
                         ('Gaming', '🎮'),
@@ -227,7 +231,7 @@ def init_db():
                 print(f"Create user_tags table error: {e}")
                 conn.rollback()
             
-            print("Database initialized successfully!")
+            print("✅ Database initialized successfully!")
     except Exception as e:
         print(f"Init DB error: {e}")
     finally:
