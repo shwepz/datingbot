@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import sqlite3
 import os
@@ -9,7 +9,7 @@ import time
 from datetime import datetime
 from functools import wraps
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
 
 # Конфиг
@@ -84,68 +84,15 @@ def init_db():
     conn.commit()
     conn.close()
 
-# ======================== VALIDATION ========================
+# ======================== STATIC ROUTES ========================
 
-def validate_init_data(init_data):
-    """Валидирует initData от Telegram WebApp"""
-    try:
-        # Parse query string
-        data = {}
-        for item in init_data.split('&'):
-            if '=' in item:
-                k, v = item.split('=', 1)
-                data[k] = v
-        
-        hash_val = data.pop('hash', '')
-        
-        # Создаём data_check_string
-        data_check_string = '\n'.join(
-            f'{k}={v}' for k, v in sorted(data.items())
-        )
-        
-        # Вычисляем secret_key и hash
-        secret_key = hmac.new(
-            b'WebAppData',
-            BOT_TOKEN.encode(),
-            hashlib.sha256
-        ).digest()
-        
-        calculated_hash = hmac.new(
-            secret_key,
-            data_check_string.encode(),
-            hashlib.sha256
-        ).hexdigest()
-        
-        # Проверяем hash
-        if not hmac.compare_digest(calculated_hash, hash_val):
-            return None
-        
-        # Проверяем время (максимум 1 час)
-        auth_date = int(data.get('auth_date', 0))
-        if time.time() - auth_date > 3600:
-            return None
-        
-        # Парсим user JSON
-        user = json.loads(data.get('user', '{}'))
-        return user
-    except Exception as e:
-        print(f'Validation error: {e}')
-        return None
+@app.route('/')
+def index():
+    return send_file('index.html')
 
-def require_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        init_data = request.headers.get('X-Init-Data')
-        if not init_data:
-            return jsonify({'error': 'No init data'}), 401
-        
-        user = validate_init_data(init_data)
-        if not user:
-            return jsonify({'error': 'Invalid init data'}), 401
-        
-        request.user_id = user.get('id')
-        return f(*args, **kwargs)
-    return decorated
+@app.route('/<path:filename>')
+def serve_static(filename):
+    return send_file(filename)
 
 # ======================== API ROUTES ========================
 
@@ -204,7 +151,7 @@ def get_profiles(user_id):
     conn = get_db()
     c = conn.cursor()
     
-    # Получаем ID пользователей, которых уже лайкнул или скипнул текущий юзер
+    # Получаем ID пользователей, которых уже лайкнул текущий юзер
     c.execute('''
         SELECT to_user FROM likes WHERE from_user = ?
     ''', (user_id,))
@@ -341,10 +288,24 @@ def send_message():
 
 @app.route('/api/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'ok'})
+    return jsonify({'status': 'ok', 'timestamp': datetime.now().isoformat()})
+
+# ======================== ERROR HANDLERS ========================
+
+@app.errorhandler(404)
+def not_found(e):
+    # Для SPA - вернуть index.html для всех неизвестных маршрутов
+    if not request.path.startswith('/api/'):
+        return send_file('index.html')
+    return jsonify({'error': 'Not found'}), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    return jsonify({'error': 'Server error', 'message': str(e)}), 500
 
 # ======================== MAIN ========================
 
 if __name__ == '__main__':
     init_db()
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=False)
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
