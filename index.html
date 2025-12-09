@@ -51,11 +51,13 @@
         .tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
         .tag { padding: 8px 12px; border: 2px solid var(--border); border-radius: 20px; background: var(--bg); color: var(--text); cursor: pointer; transition: all 0.2s; font-size: 13px; }
         .tag.selected { background: var(--accent); color: white; border-color: var(--accent); }
-        .btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .btn-primary { background: linear-gradient(135deg, var(--accent), #ff8a80); color: white; box-shadow: 0 4px 12px rgba(255, 90, 95, 0.3); }
+        .btn { padding: 12px 16px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), #ff8a80); color: white; box-shadow: 0 4px 12px rgba(255, 90, 95, 0.3); width: 100%; }
         .btn-primary:active { transform: scale(0.98); }
         .btn-secondary { background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border); }
-        .btn-secondary:active { transform: scale(0.98); }
+        .btn-small-primary { background: linear-gradient(135deg, var(--success), #81c784); color: white; }
+        .btn-small-secondary { background: #ff6b6b; color: white; }
+        .btn-small-primary:active, .btn-small-secondary:active { transform: scale(0.95); }
         .card-stack { position: relative; width: 100%; height: 520px; margin-bottom: 20px; }
         .card { position: absolute; width: 100%; height: 100%; background: var(--bg-secondary); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 30px var(--shadow); cursor: grab; user-select: none; overflow: hidden; }
         .card.swipe-right { animation: swipeRight 0.5s forwards; }
@@ -72,13 +74,17 @@
         .action-btn.like { background: linear-gradient(135deg, var(--success), #81c784); color: white; }
         .action-btn.dislike { background: #ff6b6b; color: white; }
         .action-btn:active { transform: scale(0.9); }
-        .likes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-        .like-item { background: var(--bg-secondary); border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.2s; position: relative; box-shadow: 0 4px 12px var(--shadow); }
-        .like-item:active { transform: scale(0.95); }
-        .like-badge { position: absolute; top: 8px; right: 8px; background: var(--accent); color: white; padding: 4px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; z-index: 10; }
-        .like-photo { width: 100%; height: 200px; background: var(--border); object-fit: cover; }
-        .like-info { padding: 12px; }
-        .like-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+        .likes-container { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .like-card { background: var(--bg-secondary); border-radius: 16px; padding: 12px; display: flex; gap: 12px; align-items: flex-start; cursor: pointer; box-shadow: 0 4px 12px var(--shadow); }
+        .like-card:active { transform: scale(0.98); }
+        .like-photo { width: 80px; height: 80px; background: var(--border); border-radius: 12px; object-fit: cover; flex-shrink: 0; }
+        .like-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .like-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .like-name { font-weight: 600; font-size: 16px; }
+        .like-badge { background: var(--accent); color: white; padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 600; }
+        .like-location { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+        .like-actions { display: flex; gap: 8px; }
+        .like-actions .btn { padding: 8px 12px; font-size: 13px; min-width: 50px; }
         .profile-viewer { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); display: none; z-index: 200; overflow-y: auto; padding-bottom: 60px; }
         .profile-viewer.active { display: block; }
         .profile-viewer-header { background: var(--bg-secondary); padding: 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 201; display: flex; justify-content: space-between; align-items: center; }
@@ -88,7 +94,6 @@
         .profile-viewer-info { background: var(--bg-secondary); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
         .profile-viewer-info h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
         .profile-viewer-info p { color: var(--text-secondary); font-size: 14px; margin-bottom: 8px; line-height: 1.5; }
-        .message-button { width: 100%; }
         .chat-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
         .chat-item { background: var(--bg-secondary); border-radius: 12px; padding: 12px; cursor: pointer; transition: all 0.2s; }
         .chat-item:active { background: var(--border); }
@@ -140,7 +145,7 @@
             <div id="no-profiles" class="empty-state"></div>
         </div>
         <div id="likes-section" class="section">
-            <div class="likes-grid" id="likes-grid"></div>
+            <div class="likes-container" id="likes-container"></div>
             <div id="no-likes" class="empty-state" style="display: none;"><div class="empty-state-emoji">😔</div><div>Кто-то тебя лайкнул</div><div style="font-size: 12px; margin-top: 8px;">Ответь лайком и напиши ему!</div></div>
         </div>
         <div id="messages-section" class="section">
@@ -161,7 +166,6 @@
                 <p id="profile-viewer-location"></p>
                 <p id="profile-viewer-bio"></p>
             </div>
-            <button class="btn btn-primary message-button" id="message-button" onclick="sendMessageToProfile()">💬 Написать сообщение</button>
         </div>
     </div>
     <div class="navbar" id="navbar">
@@ -285,24 +289,40 @@
         }
 
         function renderLikes() {
-            const grid = document.getElementById('likes-grid'), noLikes = document.getElementById('no-likes');
+            const container = document.getElementById('likes-container'), noLikes = document.getElementById('no-likes');
             if (!allLikes.length) {
-                grid.innerHTML = '';
+                container.innerHTML = '';
                 noLikes.style.display = 'block';
                 document.getElementById('likes-badge').style.display = 'none';
             } else {
                 noLikes.style.display = 'none';
                 document.getElementById('likes-badge').textContent = allLikes.length;
                 document.getElementById('likes-badge').style.display = 'flex';
-                grid.innerHTML = allLikes.map(like => `<div class="like-item" onclick="viewProfile(${like.id}, '${like.name}', ${like.age}, '${like.city}', '${like.photo_url || ''}')"><div class="like-badge">❤️</div>${like.photo_url ? `<img src="${like.photo_url}" class="like-photo" />` : '<div class="like-photo"></div>'}<div class="like-info"><div class="like-name">${like.name}, ${like.age}</div><div style="font-size: 12px; color: var(--text-secondary);">📍 ${like.city}</div></div></div>`).join('');
+                container.innerHTML = allLikes.map(like => `
+                    <div class="like-card">
+                        <img src="${like.photo_url || ''}" class="like-photo" />
+                        <div class="like-info">
+                            <div class="like-header">
+                                <div class="like-name">${like.name}, ${like.age}</div>
+                                <div class="like-badge">❤️</div>
+                            </div>
+                            <div class="like-location">📍 ${like.city}</div>
+                            <div class="like-actions">
+                                <button class="btn btn-small-primary" onclick="likeUser(${like.id}, '${like.name}')">❤️</button>
+                                <button class="btn btn-small-secondary" onclick="dislikeUser(${like.id})">👋</button>
+                                <button class="btn btn-secondary" style="flex: 1;" onclick="viewProfileDetail(${like.id}, '${like.name}', ${like.age}, '${like.city}', '${like.photo_url || ''}')">View</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
             }
         }
 
-        function viewProfile(userId, name, age, city, photo) {
+        function viewProfileDetail(userId, name, age, city, photo) {
             viewingProfile = { userId, name, age, city, photo };
             document.getElementById('profile-viewer-name').textContent = `${name}, ${age}`;
             document.getElementById('profile-viewer-location').textContent = `📍 ${city}`;
-            document.getElementById('profile-viewer-bio').textContent = 'Открываю профиль...';
+            document.getElementById('profile-viewer-bio').textContent = 'Полный профиль';
             if (photo) document.getElementById('profile-viewer-photo').src = photo;
             document.getElementById('profile-viewer').classList.add('active');
         }
@@ -312,22 +332,30 @@
             viewingProfile = null;
         }
 
-        async function sendMessageToProfile() {
-            if (!viewingProfile) return;
+        async function likeUser(userId, userName) {
             hapticFeedback('light');
-            
-            u1 = Math.min(userData.id, viewingProfile.userId);
-            u2 = Math.max(userData.id, viewingProfile.userId);
             await fetch(`${API_BASE}/like`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from_user: userData.id, to_user: viewingProfile.userId })
+                body: JSON.stringify({ from_user: userData.id, to_user: userId })
             }).then(r => r.json());
             
-            closeProfileViewer();
+            allLikes = allLikes.filter(l => l.id !== userId);
+            renderLikes();
             loadChats();
             switchSection('messages');
-            openChat(viewingProfile.userId, viewingProfile.name, viewingProfile.photo);
+        }
+
+        async function dislikeUser(userId) {
+            hapticFeedback('light');
+            await fetch(`${API_BASE}/like`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ from_user: userData.id, to_user: userId, dislike: true })
+            }).then(r => r.json());
+            
+            allLikes = allLikes.filter(l => l.id !== userId);
+            renderLikes();
         }
 
         async function loadChats() {
