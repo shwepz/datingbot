@@ -57,142 +57,179 @@ def execute_query(query, params=(), fetch_one=False, fetch_all=False, commit=Fal
     finally:
         conn.close()
 
+def safe_execute(query, params=()):
+    """Execute query safely, rolling back on error"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            pg_query = query.replace('?', '%s')
+            if params:
+                cur.execute(pg_query, params)
+            else:
+                cur.execute(pg_query)
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"Safe execute error (non-critical): {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
 def init_db():
     conn = get_db_connection()
     try:
         with conn.cursor() as c:
             # Пользователи
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    id BIGINT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    age INTEGER,
-                    city TEXT,
-                    bio TEXT,
-                    interests TEXT,
-                    username TEXT,
-                    photo_url TEXT,
-                    is_premium BOOLEAN DEFAULT FALSE,
-                    daily_likes_used INTEGER DEFAULT 0,
-                    last_like_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            
-            # Add missing columns if they don't exist
             try:
-                c.execute('ALTER TABLE users ADD COLUMN photo_url TEXT')
-            except:
-                pass
+                c.execute('''
+                    CREATE TABLE IF NOT EXISTS users (
+                        id BIGINT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        age INTEGER,
+                        city TEXT,
+                        bio TEXT,
+                        interests TEXT,
+                        username TEXT,
+                        photo_url TEXT,
+                        is_premium BOOLEAN DEFAULT FALSE,
+                        daily_likes_used INTEGER DEFAULT 0,
+                        last_like_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+                conn.commit()
+            except Exception as e:
+                print(f"Create users table error: {e}")
+                conn.rollback()
             
-            try:
-                c.execute('ALTER TABLE users ADD COLUMN is_premium BOOLEAN DEFAULT FALSE')
-            except:
-                pass
-            
-            try:
-                c.execute('ALTER TABLE users ADD COLUMN daily_likes_used INTEGER DEFAULT 0')
-            except:
-                pass
-            
-            try:
-                c.execute('ALTER TABLE users ADD COLUMN last_like_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
-            except:
-                pass
+            # Add missing columns if they don't exist - each in separate transaction
+            safe_execute('ALTER TABLE users ADD COLUMN photo_url TEXT')
+            safe_execute('ALTER TABLE users ADD COLUMN is_premium BOOLEAN DEFAULT FALSE')
+            safe_execute('ALTER TABLE users ADD COLUMN daily_likes_used INTEGER DEFAULT 0')
+            safe_execute('ALTER TABLE users ADD COLUMN last_like_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
             
             # Лайки
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS likes (
-                    id SERIAL PRIMARY KEY,
-                    from_user BIGINT,
-                    to_user BIGINT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(from_user, to_user),
-                    FOREIGN KEY(from_user) REFERENCES users(id),
-                    FOREIGN KEY(to_user) REFERENCES users(id)
-                )
-            ''')
+            try:
+                c.execute('''
+                    CREATE TABLE IF NOT EXISTS likes (
+                        id SERIAL PRIMARY KEY,
+                        from_user BIGINT,
+                        to_user BIGINT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(from_user, to_user),
+                        FOREIGN KEY(from_user) REFERENCES users(id),
+                        FOREIGN KEY(to_user) REFERENCES users(id)
+                    )
+                ''')
+                conn.commit()
+            except Exception as e:
+                print(f"Create likes table error: {e}")
+                conn.rollback()
             
             # Чаты
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS chats (
-                    id SERIAL PRIMARY KEY,
-                    user1_id BIGINT,
-                    user2_id BIGINT,
-                    last_message_at TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(user1_id, user2_id),
-                    FOREIGN KEY(user1_id) REFERENCES users(id),
-                    FOREIGN KEY(user2_id) REFERENCES users(id)
-                )
-            ''')
+            try:
+                c.execute('''
+                    CREATE TABLE IF NOT EXISTS chats (
+                        id SERIAL PRIMARY KEY,
+                        user1_id BIGINT,
+                        user2_id BIGINT,
+                        last_message_at TIMESTAMP,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(user1_id, user2_id),
+                        FOREIGN KEY(user1_id) REFERENCES users(id),
+                        FOREIGN KEY(user2_id) REFERENCES users(id)
+                    )
+                ''')
+                conn.commit()
+            except Exception as e:
+                print(f"Create chats table error: {e}")
+                conn.rollback()
             
             # Add missing column in chats
-            try:
-                c.execute('ALTER TABLE chats ADD COLUMN last_message_at TIMESTAMP')
-            except:
-                pass
+            safe_execute('ALTER TABLE chats ADD COLUMN last_message_at TIMESTAMP')
             
             # Сообщения
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS messages (
-                    id SERIAL PRIMARY KEY,
-                    chat_id INTEGER,
-                    from_user BIGINT,
-                    text TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(chat_id) REFERENCES chats(id),
-                    FOREIGN KEY(from_user) REFERENCES users(id)
-                )
-            ''')
+            try:
+                c.execute('''
+                    CREATE TABLE IF NOT EXISTS messages (
+                        id SERIAL PRIMARY KEY,
+                        chat_id INTEGER,
+                        from_user BIGINT,
+                        text TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY(chat_id) REFERENCES chats(id),
+                        FOREIGN KEY(from_user) REFERENCES users(id)
+                    )
+                ''')
+                conn.commit()
+            except Exception as e:
+                print(f"Create messages table error: {e}")
+                conn.rollback()
             
             # Predefined tags
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS tags (
-                    id SERIAL PRIMARY KEY,
-                    name TEXT UNIQUE NOT NULL,
-                    emoji TEXT
-                )
-            ''')
+            try:
+                c.execute('''
+                    CREATE TABLE IF NOT EXISTS tags (
+                        id SERIAL PRIMARY KEY,
+                        name TEXT UNIQUE NOT NULL,
+                        emoji TEXT
+                    )
+                ''')
+                conn.commit()
+            except Exception as e:
+                print(f"Create tags table error: {e}")
+                conn.rollback()
             
             # Вставка тегов
-            c.execute('SELECT COUNT(*) as cnt FROM tags')
-            result = c.fetchone()
-            if result and result['cnt'] == 0:
-                tags_data = [
-                    ('Sport', '⚽'),
-                    ('Crypto', '🢰'),
-                    ('Travel', '✈️'),
-                    ('Music', '🎵'),
-                    ('Gaming', '🎮'),
-                    ('Dogs', '🐕'),
-                    ('Cats', '🐱'),
-                    ('Fitness', '💪'),
-                    ('Art', '🎨'),
-                    ('Books', '📚'),
-                    ('Food', '🍕'),
-                    ('Fashion', '👗')
-                ]
-                for name, emoji in tags_data:
-                    c.execute('INSERT INTO tags (name, emoji) VALUES (%s, %s)', (name, emoji))
+            try:
+                c.execute('SELECT COUNT(*) as cnt FROM tags')
+                result = c.fetchone()
+                if result and result['cnt'] == 0:
+                    tags_data = [
+                        ('Sport', '⚽'),
+                        ('Crypto', '🢰'),
+                        ('Travel', '✈️'),
+                        ('Music', '🎵'),
+                        ('Gaming', '🎮'),
+                        ('Dogs', '🐕'),
+                        ('Cats', '🐱'),
+                        ('Fitness', '💪'),
+                        ('Art', '🎨'),
+                        ('Books', '📚'),
+                        ('Food', '🍕'),
+                        ('Fashion', '👗')
+                    ]
+                    for name, emoji in tags_data:
+                        try:
+                            c.execute('INSERT INTO tags (name, emoji) VALUES (%s, %s)', (name, emoji))
+                        except Exception as e:
+                            print(f"Insert tag error: {e}")
+                    conn.commit()
+            except Exception as e:
+                print(f"Tags insert error: {e}")
+                conn.rollback()
             
             # User-tags mapping
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS user_tags (
-                    user_id BIGINT,
-                    tag_id INTEGER,
-                    PRIMARY KEY (user_id, tag_id),
-                    FOREIGN KEY(user_id) REFERENCES users(id),
-                    FOREIGN KEY(tag_id) REFERENCES tags(id)
-                )
-            ''')
+            try:
+                c.execute('''
+                    CREATE TABLE IF NOT EXISTS user_tags (
+                        user_id BIGINT,
+                        tag_id INTEGER,
+                        PRIMARY KEY (user_id, tag_id),
+                        FOREIGN KEY(user_id) REFERENCES users(id),
+                        FOREIGN KEY(tag_id) REFERENCES tags(id)
+                    )
+                ''')
+                conn.commit()
+            except Exception as e:
+                print(f"Create user_tags table error: {e}")
+                conn.rollback()
             
-            conn.commit()
-            print("Database initialized successfully with all features!")
+            print("Database initialized successfully!")
     except Exception as e:
         print(f"Init DB error: {e}")
-        conn.rollback()
     finally:
         conn.close()
 
