@@ -7,8 +7,8 @@ import hmac
 import time
 from datetime import datetime
 from functools import wraps
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg
+from psycopg.rows import dict_row
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
@@ -22,96 +22,100 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL is not set")
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    # psycopg 3 connection
+    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
 
 def execute_query(query, params=(), fetch_one=False, fetch_all=False, commit=False):
     conn = get_db_connection()
-    cur = conn.cursor()
-    # Адаптация плейсхолдеров SQLite (?) под Postgres (%s)
-    pg_query = query.replace('?', '%s')
-    
     try:
-        cur.execute(pg_query, params)
-        if commit:
-            conn.commit()
-            result = True
-        elif fetch_one:
-            result = cur.fetchone()
-        elif fetch_all:
-            result = cur.fetchall()
-        else:
+        # psycopg 3 cursor
+        with conn.cursor() as cur:
+            # Адаптация плейсхолдеров: psycopg3 тоже использует %s, но на всякий случай
+            pg_query = query.replace('?', '%s')
+            
+            cur.execute(pg_query, params)
+            
             result = None
-        cur.close()
-        conn.close()
-        return result
+            if fetch_one:
+                result = cur.fetchone()
+            elif fetch_all:
+                result = cur.fetchall()
+            
+            if commit:
+                conn.commit()
+                
+            return result
     except Exception as e:
         conn.rollback()
-        cur.close()
-        conn.close()
         print(f"Database error: {e}")
         raise e
+    finally:
+        conn.close()
 
 def init_db():
     conn = get_db_connection()
-    c = conn.cursor()
-    
-    # Пользователи (ID - это Telegram ID, поэтому BIGINT)
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id BIGINT PRIMARY KEY,
-            name TEXT NOT NULL,
-            age INTEGER,
-            city TEXT,
-            bio TEXT,
-            interests TEXT,
-            username TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Лайки
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS likes (
-            id SERIAL PRIMARY KEY,
-            from_user BIGINT,
-            to_user BIGINT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(from_user, to_user),
-            FOREIGN KEY(from_user) REFERENCES users(id),
-            FOREIGN KEY(to_user) REFERENCES users(id)
-        )
-    ''')
-    
-    # Чаты
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS chats (
-            id SERIAL PRIMARY KEY,
-            user1_id BIGINT,
-            user2_id BIGINT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user1_id, user2_id),
-            FOREIGN KEY(user1_id) REFERENCES users(id),
-            FOREIGN KEY(user2_id) REFERENCES users(id)
-        )
-    ''')
-    
-    # Сообщения
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS messages (
-            id SERIAL PRIMARY KEY,
-            chat_id INTEGER,
-            from_user BIGINT,
-            text TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(chat_id) REFERENCES chats(id),
-            FOREIGN KEY(from_user) REFERENCES users(id)
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
-    print("Database initialized successfully (PostgreSQL)")
+    try:
+        with conn.cursor() as c:
+            # Пользователи
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id BIGINT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    age INTEGER,
+                    city TEXT,
+                    bio TEXT,
+                    interests TEXT,
+                    username TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Лайки
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS likes (
+                    id SERIAL PRIMARY KEY,
+                    from_user BIGINT,
+                    to_user BIGINT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(from_user, to_user),
+                    FOREIGN KEY(from_user) REFERENCES users(id),
+                    FOREIGN KEY(to_user) REFERENCES users(id)
+                )
+            ''')
+            
+            # Чаты
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS chats (
+                    id SERIAL PRIMARY KEY,
+                    user1_id BIGINT,
+                    user2_id BIGINT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user1_id, user2_id),
+                    FOREIGN KEY(user1_id) REFERENCES users(id),
+                    FOREIGN KEY(user2_id) REFERENCES users(id)
+                )
+            ''')
+            
+            # Сообщения
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS messages (
+                    id SERIAL PRIMARY KEY,
+                    chat_id INTEGER,
+                    from_user BIGINT,
+                    text TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(chat_id) REFERENCES chats(id),
+                    FOREIGN KEY(from_user) REFERENCES users(id)
+                )
+            ''')
+            
+            conn.commit()
+            print("Database initialized successfully (PostgreSQL/psycopg3)")
+    except Exception as e:
+        print(f"Init DB error: {e}")
+    finally:
+        conn.close()
 
 # Инициализация при старте
 try:
@@ -120,7 +124,7 @@ try:
     else:
         print("WARNING: DATABASE_URL not set")
 except Exception as e:
-    print(f"Init DB error: {e}")
+    print(f"Startup error: {e}")
 
 # ======================== VALIDATION ========================
 
@@ -191,7 +195,7 @@ def require_auth(f):
 def get_user(user_id):
     user = execute_query('SELECT * FROM users WHERE id = ?', (user_id,), fetch_one=True)
     if user:
-        return jsonify(dict(user))
+        return jsonify(user)
     return jsonify({'error': 'User not found'}), 404
 
 @app.route('/api/user', methods=['POST'])
@@ -227,11 +231,10 @@ def get_profiles(user_id):
     liked_ids.append(user_id)
     
     # Postgres ANY/ALL syntax for array
-    # Используем list(tuple) для правильной передачи в %s
     query = 'SELECT id, name, age, city, bio, interests FROM users WHERE id != ALL(%s) LIMIT 50'
     profiles = execute_query(query, (liked_ids,), fetch_all=True)
     
-    return jsonify([dict(row) for row in profiles])
+    return jsonify(profiles)
 
 @app.route('/api/like', methods=['POST'])
 def like_profile():
@@ -267,7 +270,7 @@ def get_matches(user_id):
         match_id = chat['user2_id'] if chat['user1_id'] == user_id else chat['user1_id']
         user = execute_query('SELECT id, name, city FROM users WHERE id = ?', (match_id,), fetch_one=True)
         if user:
-            matches.append(dict(user))
+            matches.append(user)
             
     return jsonify(matches)
 
