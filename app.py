@@ -2,11 +2,8 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import os
 import json
-import hashlib
-import hmac
 import time
 from datetime import datetime, timedelta
-from functools import wraps
 import psycopg
 from psycopg.rows import dict_row
 import base64
@@ -76,7 +73,7 @@ def safe_execute(query, params=()):
     finally:
         conn.close()
 
-# ✅ КЭШИРОВАНИЕ тегов (они почти никогда не меняются)
+# ✅ КЭШИРОВАНИЕ тегов
 _tags_cache = None
 _tags_cache_time = 0
 
@@ -84,7 +81,6 @@ def get_tags_cached(force_refresh=False):
     global _tags_cache, _tags_cache_time
     current_time = time.time()
     
-    # Обновляем кэш каждые 1 час или если принудительно попросили
     if force_refresh or _tags_cache is None or (current_time - _tags_cache_time) > 3600:
         try:
             tags = execute_query('SELECT id, name, emoji FROM tags ORDER BY name', fetch_all=True)
@@ -94,26 +90,6 @@ def get_tags_cached(force_refresh=False):
             _tags_cache = []
     
     return _tags_cache or []
-
-# ✅ АСИНХРОННОЕ сохранение фотографий
-def save_photo_async(user_id, photo_base64):
-    def _save():
-        try:
-            if ',' in photo_base64:
-                photo_base64_clean = photo_base64.split(',')[1]
-            else:
-                photo_base64_clean = photo_base64
-            
-            photo_bytes = base64.b64decode(photo_base64_clean)
-            photo_path = os.path.join(PHOTO_DIR, f'{user_id}_profile.jpg')
-            
-            with open(photo_path, 'wb') as f:
-                f.write(photo_bytes)
-        except Exception as e:
-            print(f"Photo save error: {e}")
-    
-    thread = Thread(target=_save, daemon=True)
-    thread.start()
 
 def init_db():
     conn = get_db_connection()
@@ -129,7 +105,7 @@ def init_db():
                         bio TEXT,
                         interests TEXT,
                         username TEXT,
-                        photo_url TEXT,
+                        photo_data BYTEA,
                         is_premium BOOLEAN DEFAULT FALSE,
                         daily_likes_used INTEGER DEFAULT 0,
                         last_like_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -141,12 +117,18 @@ def init_db():
             except Exception as e:
                 conn.rollback()
             
-            safe_execute('ALTER TABLE users ADD COLUMN photo_url TEXT')
+            # Миграция: добавить photo_data если ее нет
+            try:
+                c.execute('ALTER TABLE users ADD COLUMN photo_data BYTEA')
+                conn.commit()
+            except:
+                conn.rollback()
+            
             safe_execute('ALTER TABLE users ADD COLUMN is_premium BOOLEAN DEFAULT FALSE')
             safe_execute('ALTER TABLE users ADD COLUMN daily_likes_used INTEGER DEFAULT 0')
             safe_execute('ALTER TABLE users ADD COLUMN last_like_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
             
-            # ✅ СОЗДАНИЕ ИНДЕКСОВ для быстрых запросов
+            # ✅ СОЗДАНИЕ ИНДЕКСОВ
             try:
                 c.execute('CREATE INDEX IF NOT EXISTS idx_users_city ON users(city)')
                 c.execute('CREATE INDEX IF NOT EXISTS idx_users_age ON users(age)')
@@ -161,53 +143,41 @@ def init_db():
                 conn.rollback()
                 print(f"Index creation note: {e}")
             
-            # Migration: Drop old likes table constraints and recreate with CASCADE
             try:
                 c.execute('ALTER TABLE likes DROP CONSTRAINT IF EXISTS likes_from_user_fkey')
                 c.execute('ALTER TABLE likes DROP CONSTRAINT IF EXISTS likes_to_user_fkey')
                 c.execute('ALTER TABLE likes ADD CONSTRAINT likes_from_user_fkey FOREIGN KEY(from_user) REFERENCES users(id) ON DELETE CASCADE')
                 c.execute('ALTER TABLE likes ADD CONSTRAINT likes_to_user_fkey FOREIGN KEY(to_user) REFERENCES users(id) ON DELETE CASCADE')
                 conn.commit()
-                print("✅ Updated likes table constraints")
-            except Exception as e:
+            except:
                 conn.rollback()
-                print(f"Likes migration note: {e}")
             
-            # Migration: Drop old chats table constraints and recreate with CASCADE
             try:
                 c.execute('ALTER TABLE chats DROP CONSTRAINT IF EXISTS chats_user1_id_fkey')
                 c.execute('ALTER TABLE chats DROP CONSTRAINT IF EXISTS chats_user2_id_fkey')
                 c.execute('ALTER TABLE chats ADD CONSTRAINT chats_user1_id_fkey FOREIGN KEY(user1_id) REFERENCES users(id) ON DELETE CASCADE')
                 c.execute('ALTER TABLE chats ADD CONSTRAINT chats_user2_id_fkey FOREIGN KEY(user2_id) REFERENCES users(id) ON DELETE CASCADE')
                 conn.commit()
-                print("✅ Updated chats table constraints")
-            except Exception as e:
+            except:
                 conn.rollback()
-                print(f"Chats migration note: {e}")
             
-            # Migration: Fix messages table to add CASCADE for from_user and chat_id
             try:
                 c.execute('ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_from_user_fkey')
                 c.execute('ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_chat_id_fkey')
                 c.execute('ALTER TABLE messages ADD CONSTRAINT messages_from_user_fkey FOREIGN KEY(from_user) REFERENCES users(id) ON DELETE CASCADE')
                 c.execute('ALTER TABLE messages ADD CONSTRAINT messages_chat_id_fkey FOREIGN KEY(chat_id) REFERENCES chats(id) ON DELETE CASCADE')
                 conn.commit()
-                print("✅ Updated messages table constraints")
-            except Exception as e:
+            except:
                 conn.rollback()
-                print(f"Messages migration note: {e}")
             
-            # Migration: Fix user_tags table to add CASCADE for user_id and tag_id
             try:
                 c.execute('ALTER TABLE user_tags DROP CONSTRAINT IF EXISTS user_tags_user_id_fkey')
                 c.execute('ALTER TABLE user_tags DROP CONSTRAINT IF EXISTS user_tags_tag_id_fkey')
                 c.execute('ALTER TABLE user_tags ADD CONSTRAINT user_tags_user_id_fkey FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE')
                 c.execute('ALTER TABLE user_tags ADD CONSTRAINT user_tags_tag_id_fkey FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE')
                 conn.commit()
-                print("✅ Updated user_tags table constraints")
-            except Exception as e:
+            except:
                 conn.rollback()
-                print(f"User_tags migration note: {e}")
             
             try:
                 c.execute('''
@@ -222,7 +192,7 @@ def init_db():
                     )
                 ''')
                 conn.commit()
-            except Exception as e:
+            except:
                 conn.rollback()
             
             try:
@@ -238,7 +208,7 @@ def init_db():
                     )
                 ''')
                 conn.commit()
-            except Exception as e:
+            except:
                 conn.rollback()
             
             try:
@@ -250,7 +220,7 @@ def init_db():
                     )
                 ''')
                 conn.commit()
-            except Exception as e:
+            except:
                 conn.rollback()
             
             try:
@@ -303,7 +273,7 @@ def init_db():
 try:
     if DATABASE_URL:
         init_db()
-        get_tags_cached()  # Предзагружаем теги в памяти
+        get_tags_cached()
 except:
     pass
 
@@ -319,13 +289,12 @@ def reset_daily_likes(user_id):
 
 @app.route('/api/tags', methods=['GET'])
 def get_tags():
-    # ✅ Используем кэшированные теги
     tags = get_tags_cached()
     return jsonify(tags or [])
 
 @app.route('/api/user/<int:user_id>', methods=['GET'])
 def get_user(user_id):
-    user = execute_query('SELECT id, name, age, city, bio, photo_url FROM users WHERE id = ?', (user_id,), fetch_one=True)
+    user = execute_query('SELECT id, name, age, city, bio FROM users WHERE id = ?', (user_id,), fetch_one=True)
     if user:
         tags = execute_query('''
             SELECT t.id, t.name, t.emoji FROM user_tags ut
@@ -333,6 +302,7 @@ def get_user(user_id):
             WHERE ut.user_id = ?
         ''', (user_id,), fetch_all=True)
         user['tags'] = tags or []
+        user['photo_url'] = f'/api/photo/{user_id}' if user else None
         return jsonify(user)
     return jsonify({'error': 'User not found'}), 404
 
@@ -340,19 +310,26 @@ def get_user(user_id):
 def create_user():
     data = request.json
     try:
+        photo_data = None
+        if data.get('photo_data'):
+            photo_base64 = data['photo_data']
+            if ',' in photo_base64:
+                photo_base64 = photo_base64.split(',')[1]
+            photo_data = base64.b64decode(photo_base64)
+        
         execute_query('''
-            INSERT INTO users (id, name, age, city, bio, photo_url, updated_at)
+            INSERT INTO users (id, name, age, city, bio, photo_data, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT (id) DO UPDATE SET
             name = EXCLUDED.name,
             age = EXCLUDED.age,
             city = EXCLUDED.city,
             bio = EXCLUDED.bio,
-            photo_url = EXCLUDED.photo_url,
+            photo_data = EXCLUDED.photo_data,
             updated_at = CURRENT_TIMESTAMP
         ''', (
             data['id'], data['name'], data.get('age'), data.get('city'),
-            data.get('bio'), data.get('photo_url')
+            data.get('bio'), photo_data
         ), commit=True)
         
         if data.get('tag_ids'):
@@ -360,28 +337,14 @@ def create_user():
             for tag_id in data['tag_ids']:
                 execute_query('INSERT INTO user_tags (user_id, tag_id) VALUES (?, ?)', (data['id'], tag_id), commit=True)
         
-        return jsonify({'success': True})
+        return jsonify({'success': True, 'photo_url': f"/api/photo/{data['id']}"})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/user/<int:user_id>', methods=['DELETE'])
 def delete_user(user_id):
     try:
-        # CASCADE will automatically delete chats, messages, likes, user_tags
         execute_query('DELETE FROM users WHERE id = ?', (user_id,), commit=True)
-        
-        # Delete photo file асинхронно
-        def delete_photo():
-            photo_path = os.path.join(PHOTO_DIR, f'{user_id}_profile.jpg')
-            try:
-                if os.path.exists(photo_path):
-                    os.remove(photo_path)
-            except:
-                pass
-        
-        thread = Thread(target=delete_photo, daemon=True)
-        thread.start()
-        
         return jsonify({'success': True})
     except Exception as e:
         print(f"Delete user error: {e}")
@@ -396,7 +359,6 @@ def get_profiles(user_id):
         
         reset_daily_likes(user_id)
         
-        # ✅ Получаем уже взаимодействовавших пользователей
         interacted = execute_query('SELECT to_user FROM likes WHERE from_user = ?', (user_id,), fetch_all=True)
         interacted_ids = [row['to_user'] for row in (interacted or [])] + [user_id]
         
@@ -409,11 +371,9 @@ def get_profiles(user_id):
         else:
             params = tuple(interacted_ids) + (age_min, age_max)
         
-        # ✅ ОДИНОЧНЫЙ запрос для профилей
-        query = f'SELECT id, name, age, city, bio, photo_url FROM users {where_clause} ORDER BY RANDOM() LIMIT 50'
+        query = f'SELECT id, name, age, city, bio FROM users {where_clause} ORDER BY RANDOM() LIMIT 50'
         profiles = execute_query(query, params, fetch_all=True)
         
-        # ✅ ОДИНОЧНЫЙ запрос для всех тегов вместо N запросов
         if profiles:
             profile_ids = [p['id'] for p in profiles]
             tags_query = f'''SELECT user_id, id, name, emoji FROM user_tags ut
@@ -421,7 +381,6 @@ def get_profiles(user_id):
                 WHERE ut.user_id IN ({" , ".join(["%s"] * len(profile_ids))})'''
             all_tags = execute_query(tags_query, tuple(profile_ids), fetch_all=True)
             
-            # Маппируем теги
             tags_by_user = {}
             for tag in (all_tags or []):
                 uid = tag['user_id']
@@ -431,6 +390,7 @@ def get_profiles(user_id):
             
             for profile in profiles:
                 profile['tags'] = tags_by_user.get(profile['id'], [])
+                profile['photo_url'] = f"/api/photo/{profile['id']}"
         
         return jsonify(profiles or [])
     except Exception as e:
@@ -449,16 +409,13 @@ def like_profile():
             execute_query('DELETE FROM likes WHERE from_user = ? AND to_user = ?', (from_user, to_user), commit=True)
             return jsonify({'match': False})
         
-        # Check if already liked
         existing = execute_query('SELECT * FROM likes WHERE from_user = ? AND to_user = ?', (from_user, to_user), fetch_one=True)
         if not existing:
             execute_query('INSERT INTO likes (from_user, to_user) VALUES (?, ?)', (from_user, to_user), commit=True)
         
-        # Check for mutual like
         mutual = execute_query('SELECT * FROM likes WHERE from_user = ? AND to_user = ?', (to_user, from_user), fetch_one=True)
         
         if mutual:
-            # Create chat
             u1, u2 = sorted([from_user, to_user])
             execute_query('INSERT INTO chats (user1_id, user2_id) VALUES (?, ?) ON CONFLICT DO NOTHING', (u1, u2), commit=True)
             return jsonify({'match': True})
@@ -472,11 +429,15 @@ def like_profile():
 def get_likes(user_id):
     try:
         likes = execute_query('''
-            SELECT u.id, u.name, u.age, u.city, u.photo_url
+            SELECT u.id, u.name, u.age, u.city
             FROM likes l
             JOIN users u ON l.from_user = u.id
             WHERE l.to_user = ?
         ''', (user_id,), fetch_all=True)
+        
+        for like in (likes or []):
+            like['photo_url'] = f"/api/photo/{like['id']}"
+        
         return jsonify(likes or [])
     except Exception as e:
         print(f"Get likes error: {e}")
@@ -485,12 +446,10 @@ def get_likes(user_id):
 @app.route('/api/chats/<int:user_id>', methods=['GET'])
 def get_chats(user_id):
     try:
-        # ✅ Получаем чаты с последним сообщением в одном запросе
         chats = execute_query('''
             SELECT 
                 CASE WHEN user1_id = %s THEN user2_id ELSE user1_id END as user_id,
                 u.name as user_name,
-                u.photo_url as user_photo,
                 c.id as chat_id,
                 c.created_at,
                 (SELECT text FROM messages WHERE chat_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message
@@ -503,6 +462,7 @@ def get_chats(user_id):
         for chat in (chats or []):
             if not chat['last_message']:
                 chat['last_message'] = 'Начни разговор...'
+            chat['user_photo'] = f"/api/photo/{chat['user_id']}"
         
         return jsonify(chats or [])
     except Exception as e:
@@ -559,23 +519,29 @@ def upload_photo():
         user_id = data['user_id']
         photo_base64 = data['photo_data']
         
-        # ✅ Обновляем БД сразу
-        photo_url = f'/api/photo/{user_id}'
-        execute_query('UPDATE users SET photo_url = ? WHERE id = ?', (photo_url, user_id), commit=True)
+        if ',' in photo_base64:
+            photo_base64 = photo_base64.split(',')[1]
         
-        # ✅ Файл сохранится в отдельном потоке (не блокирует)
-        save_photo_async(user_id, photo_base64)
+        photo_bytes = base64.b64decode(photo_base64)
+        execute_query('UPDATE users SET photo_data = ? WHERE id = ?', (photo_bytes, user_id), commit=True)
         
-        return jsonify({'success': True, 'photo_url': photo_url})
+        return jsonify({'success': True, 'photo_url': f'/api/photo/{user_id}'})
     except Exception as e:
         print(f"Photo upload error: {e}")
         return jsonify({'error': str(e)}), 400
 
 @app.route('/api/photo/<int:user_id>', methods=['GET'])
 def get_photo(user_id):
-    photo_path = os.path.join(PHOTO_DIR, f'{user_id}_profile.jpg')
-    if os.path.exists(photo_path):
-        return send_file(photo_path, mimetype='image/jpeg')
+    try:
+        user = execute_query('SELECT photo_data FROM users WHERE id = ?', (user_id,), fetch_one=True)
+        if user and user['photo_data']:
+            return send_file(
+                io.BytesIO(user['photo_data']),
+                mimetype='image/jpeg',
+                as_attachment=False
+            )
+    except:
+        pass
     return '', 404
 
 @app.route('/api/health', methods=['GET'])
